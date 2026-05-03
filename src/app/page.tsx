@@ -1,5 +1,6 @@
 import { dehydrate, HydrationBoundary } from "@tanstack/react-query";
 import { ClientGreeting } from "@/components/client-greeting";
+import { LogoutButton } from "@/components/logout-button";
 import { getQueryClient, trpc } from "../trpc/server";
 
 export default async function Home() {
@@ -13,6 +14,7 @@ export default async function Home() {
       <div>...</div>
       {/** ... */}
       <ClientGreeting />
+      <LogoutButton />
     </HydrationBoundary>
   );
 }
