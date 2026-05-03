@@ -1,4 +1,4 @@
-import { getDemoRepoResult } from "./repo-analysis-demo-data";
+import type { RepoResultData } from "@/lib/repos/repo-adapters";
 import { RepoAnalysisState } from "./repo-analysis-state";
 import { RepoChatPanel } from "./repo-chat-panel";
 import { RepoReportContent } from "./repo-report-content";
@@ -6,11 +6,12 @@ import { RepoResultHeader } from "./repo-result-header";
 import { RepoSectionNav } from "./repo-section-nav";
 
 type RepoResultViewProps = {
-  id: string;
+  result: RepoResultData | null;
 };
 
-export const RepoResultView = ({ id }: RepoResultViewProps) => {
-  const { repo, analysis } = getDemoRepoResult(id);
+export const RepoResultView = ({ result }: RepoResultViewProps) => {
+  const repo = result?.repo ?? null;
+  const analysis = result?.analysis ?? null;
 
   if (!repo) {
     return <RepoAnalysisState state="not-found" />;

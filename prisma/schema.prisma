@@ -16,24 +16,97 @@ model User {
   id            String    @id
   email         String    @unique
   name          String?
-  posts         Post[]
   emailVerified Boolean   @default(false)
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
+  repos         Repo[]
 
   @@map("user")
 }
 
-model Post {
-  id        Int     @id @default(autoincrement())
-  title     String
-  content   String?
-  published Boolean @default(false)
-  authorId  String
-  author    User    @relation(fields: [authorId], references: [id])
+enum RepoStatus {
+  PENDING
+  FETCHING
+  PARSING
+  REPORTING
+  READY
+  FAILED
+}
+
+model Repo {
+  id                    String      @id @default(cuid())
+  userId                String
+  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  url                   String
+  owner                 String
+  name                  String
+  branch                String
+  visibility            String      @default("Public")
+  description           String?
+  language              String?
+  status                RepoStatus  @default(PENDING)
+  progress              Int         @default(0)
+  errorMsg              String?
+  fileCount             Int         @default(0)
+  totalBytes            Int         @default(0)
+  reportJson            Json?
+  graphJson             Json?
+  analysisMode          String      @default("fast")
+  analysisProvider      String?
+  analysisModel         String?
+  analysisPromptVersion String      @default("v1")
+  selectedFilesJson     Json?
+  lastAnalyzedAt        DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  files                 File[]
+  chunks                RepoChunk[]
+
+  @@unique([userId, owner, name, branch])
+  @@index([userId, status])
+  @@index([userId, updatedAt])
+}
+
+model File {
+  id            String      @id @default(cuid())
+  repoId        String
+  repo          Repo        @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  path          String
+  language      String?
+  sizeBytes     Int         @default(0)
+  sha           String?
+  isBinary      Boolean     @default(false)
+  skippedReason String?
+  content       String?
+  summary       String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  chunks        RepoChunk[]
+
+  @@unique([repoId, path])
+  @@index([repoId])
+}
+
+model RepoChunk {
+  id            String   @id @default(cuid())
+  repoId        String
+  repo          Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  fileId        String?
+  file          File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  path          String
+  startLine     Int?
+  endLine       Int?
+  content       String
+  tokenEstimate Int      @default(0)
+  source        String   @default("analysis")
+  createdAt     DateTime @default(now())
+
+  @@index([repoId])
+  @@index([fileId])
+  @@index([repoId, path])
 }
 
 model Session {
