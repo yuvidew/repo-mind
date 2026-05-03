@@ -28,7 +28,7 @@ export const AddRepositoryDialog = () => {
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
-  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
@@ -42,9 +42,30 @@ export const AddRepositoryDialog = () => {
     }
 
     setIsPending(true);
-    router.push(
-      `/analyze?repo=${encodeURIComponent(normalizedUrl)}&mode=${mode}`,
-    );
+
+    try {
+      const response = await fetch("/api/repos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode, url: normalizedUrl }),
+      });
+      const data = (await response.json()) as { error?: string; id?: string };
+
+      if (!response.ok || !data.id) {
+        throw new Error(data.error ?? "Unable to create repository.");
+      }
+
+      setIsOpen(false);
+      router.push(`/repos/${data.id}`);
+      router.refresh();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      );
+      setIsPending(false);
+    }
   };
 
   return (

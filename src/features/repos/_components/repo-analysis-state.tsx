@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -8,19 +11,96 @@ import {
   SearchX,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { DemoRepo } from "./repo-demo-data";
 
+type ApiRepoStatus =
+  | "PENDING"
+  | "FETCHING"
+  | "PARSING"
+  | "REPORTING"
+  | "READY"
+  | "FAILED";
+
+type RepoStatusResponse = {
+  errorMsg: string | null;
+  progress: number;
+  status: ApiRepoStatus;
+};
+
 type RepoAnalysisStateProps =
   | { state: "not-found"; repo?: never }
   | { state: "analyzing" | "failed"; repo: DemoRepo };
 
 export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
+  const router = useRouter();
+  const [progress, setProgress] = useState(repo?.progress ?? 0);
+  const [errorMsg, setErrorMsg] = useState(repo?.errorMsg ?? null);
+  const [viewState, setViewState] = useState(state);
+  const [isRetrying, setIsRetrying] = useState(false);
   const isNotFound = state === "not-found";
-  const isAnalyzing = state === "analyzing";
+  const isAnalyzing = viewState === "analyzing";
+
+  useEffect(() => {
+    if (!repo || viewState !== "analyzing") return;
+
+    const refreshStatus = async () => {
+      const response = await fetch(`/api/repos/${repo.id}/status`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) return;
+
+      const data = (await response.json()) as RepoStatusResponse;
+      setProgress(data.progress);
+      setErrorMsg(data.errorMsg);
+
+      if (data.status === "READY") {
+        router.refresh();
+        return;
+      }
+
+      if (data.status === "FAILED") {
+        setViewState("failed");
+        router.refresh();
+      }
+    };
+
+    void refreshStatus();
+    const intervalId = window.setInterval(refreshStatus, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [repo, router, viewState]);
+
+  const retryAnalysis = async () => {
+    if (!repo) return;
+
+    setIsRetrying(true);
+    setErrorMsg(null);
+
+    const response = await fetch(`/api/repos/${repo.id}/reanalyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode: "fast" }),
+    });
+
+    if (response.ok) {
+      setProgress(5);
+      setViewState("analyzing");
+      router.refresh();
+    } else {
+      const data = (await response.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      setErrorMsg(data?.error ?? "Unable to restart analysis.");
+    }
+
+    setIsRetrying(false);
+  };
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -79,10 +159,10 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">Analysis progress</span>
                       <span className="text-muted-foreground">
-                        {repo.progress ?? 0}%
+                        {progress}%
                       </span>
                     </div>
-                    <Progress value={repo.progress ?? 0} />
+                    <Progress value={progress} />
                   </div>
                   <ul className="space-y-2 text-muted-foreground text-sm leading-6">
                     <li>Fetching repository metadata and file tree.</li>
@@ -93,13 +173,13 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
               ) : (
                 <div className="space-y-4">
                   <p className="text-muted-foreground text-sm leading-6">
-                    The demo analysis stopped before a report was generated.
-                    Retry will connect to the real backend later.
+                    {errorMsg ??
+                      "The analysis stopped before a report was generated."}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button disabled>
-                      <RefreshCw />
-                      Retry analysis
+                    <Button onClick={retryAnalysis} disabled={isRetrying}>
+                      <RefreshCw className={isRetrying ? "animate-spin" : ""} />
+                      {isRetrying ? "Retrying" : "Retry analysis"}
                     </Button>
                     <Button variant="outline" asChild>
                       <a href={repo.url} target="_blank" rel="noreferrer">

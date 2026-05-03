@@ -12,7 +12,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { AddRepositoryDialog } from "./add-repository-dialog";
-import { demoRepos, type RepoStatus } from "./repo-demo-data";
+import type { DemoRepo, RepoStatus } from "./repo-demo-data";
 import { ReposEmptyState } from "./repos-empty-state";
 import { ReposGrid } from "./repos-grid";
 import { ReposPagination } from "./repos-pagination";
@@ -21,14 +21,18 @@ import { ReposToolbar } from "./repos-toolbar";
 const pageNumber = 1;
 const totalPages = 1;
 
-const ReposView = () => {
+type ReposViewProps = {
+  repos: DemoRepo[];
+};
+
+const ReposView = ({ repos }: ReposViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<RepoStatus | "ALL">("ALL");
 
   const filteredRepos = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return demoRepos.filter((repo) => {
+    return repos.filter((repo) => {
       const matchesStatus =
         statusFilter === "ALL" || repo.status === statusFilter;
       const matchesSearch =
@@ -40,7 +44,7 @@ const ReposView = () => {
 
       return matchesStatus && matchesSearch;
     });
-  }, [searchQuery, statusFilter]);
+  }, [repos, searchQuery, statusFilter]);
 
   return (
     <main className="flex min-h-screen bg-background text-foreground">
@@ -82,7 +86,7 @@ const ReposView = () => {
         <ReposToolbar
           searchQuery={searchQuery}
           statusFilter={statusFilter}
-          submittedCount={demoRepos.length}
+          submittedCount={repos.length}
           visibleCount={filteredRepos.length}
           onSearchChange={setSearchQuery}
           onStatusFilterChange={setStatusFilter}

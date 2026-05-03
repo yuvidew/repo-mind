@@ -13,6 +13,7 @@ export type DemoRepo = {
   fileCount: number;
   lastAnalyzedAt: string;
   progress?: number;
+  errorMsg?: string | null;
 };
 
 export const demoRepos: DemoRepo[] = [
