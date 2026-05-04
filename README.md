@@ -99,6 +99,12 @@ npm run lint
 npm run build
 ```
 
+Dev troubleshooting:
+
+- If newly added routes unexpectedly return 404 in development, stop the dev
+	server, remove `.next`, and restart `npm run dev`. This clears stale local
+	route/cache state without changing application code.
+
 ## Next.js 16 Baseline
 
 This repo uses Next.js 16.2.4. Before implementation work, read the relevant local docs under `node_modules/next/dist/docs/`, especially App Router, route handlers, caching, auth/session integration, server actions, and runtime limits.

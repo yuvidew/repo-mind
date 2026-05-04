@@ -24,11 +24,17 @@ export type AnalysisMode = "fast" | "deep";
 
 export type AnalysisSource = "ai" | "fallback";
 
+export type SampledFileSnippet = {
+  path: string;
+  content: string;
+};
+
 export type AnalysisDebug = {
   source: AnalysisSource;
   provider: string;
   model: string | null;
   selectedFiles: string[];
+  sampledFiles?: SampledFileSnippet[];
   detectedStack: string[];
   treeTruncated: boolean;
 };

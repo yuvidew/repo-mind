@@ -1,4 +1,4 @@
-import { ArrowLeft, BrainCircuit, ExternalLink, RefreshCw } from "lucide-react";
+import { ArrowLeft, BrainCircuit, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { RepositoryAnalysis } from "@/lib/analysis-types";
 import type { DemoRepo } from "./repo-demo-data";
+import { RepoReanalyzeButton } from "./repo-reanalyze-button";
 
 type RepoResultHeaderProps = {
   repo: DemoRepo;
@@ -43,10 +44,7 @@ export const RepoResultHeader = ({ analysis, repo }: RepoResultHeaderProps) => {
               View GitHub
             </a>
           </Button>
-          <Button variant="secondary" disabled>
-            <RefreshCw />
-            Reanalyze
-          </Button>
+          <RepoReanalyzeButton repoId={repo.id} />
         </div>
       </div>
 

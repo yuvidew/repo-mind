@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { TRPCReactProvider } from "@/trpc/client";
-import { ThemeProvider } from "@/components/theme-provider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -41,18 +41,18 @@ export default function RootLayout({
         inter.variable,
       )}
       suppressHydrationWarning
+      data-scroll-behavior="smooth"
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-
-        <TRPCReactProvider>{children}</TRPCReactProvider>
-        <Toaster />
-          </ThemeProvider>
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

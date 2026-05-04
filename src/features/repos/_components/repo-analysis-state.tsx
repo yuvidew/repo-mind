@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -12,6 +11,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,7 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
   const [isRetrying, setIsRetrying] = useState(false);
   const isNotFound = state === "not-found";
   const isAnalyzing = viewState === "analyzing";
+  const progressMessage = getProgressMessage(progress);
 
   useEffect(() => {
     if (!repo || viewState !== "analyzing") return;
@@ -158,24 +160,31 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
                   <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
                     <div className="flex items-center justify-between text-sm">
                       <span className="font-medium">Analysis progress</span>
-                      <span className="text-muted-foreground">
-                        {progress}%
-                      </span>
+                      <span className="text-muted-foreground">{progress}%</span>
                     </div>
                     <Progress value={progress} />
+                    <p className="text-muted-foreground text-sm leading-6">
+                      {progressMessage}
+                    </p>
                   </div>
                   <ul className="space-y-2 text-muted-foreground text-sm leading-6">
                     <li>Fetching repository metadata and file tree.</li>
                     <li>Selecting important files for the first report.</li>
-                    <li>Preparing architecture and chat context.</li>
+                    <li>
+                      Generating the report can take up to 1 minute; fallback
+                      output is used if the AI model is slow.
+                    </li>
                   </ul>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-muted-foreground text-sm leading-6">
-                    {errorMsg ??
-                      "The analysis stopped before a report was generated."}
-                  </p>
+                  <Alert variant="destructive">
+                    <AlertTitle>Analysis could not finish</AlertTitle>
+                    <AlertDescription>
+                      {errorMsg ??
+                        "The analysis stopped before a report was generated."}
+                    </AlertDescription>
+                  </Alert>
                   <div className="flex flex-wrap gap-2">
                     <Button onClick={retryAnalysis} disabled={isRetrying}>
                       <RefreshCw className={isRetrying ? "animate-spin" : ""} />
@@ -197,3 +206,31 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
     </main>
   );
 };
+
+function getProgressMessage(progress: number) {
+  if (progress >= 90) {
+    return "Generating the final AI explanation and preparing fallback output if needed.";
+  }
+
+  if (progress >= 84) {
+    return "Reading sampled source files and building the chat context.";
+  }
+
+  if (progress >= 78) {
+    return "Scanning the repository tree and selecting important files.";
+  }
+
+  if (progress >= 70) {
+    return "Preparing the report stage. Larger repositories can stay here briefly.";
+  }
+
+  if (progress >= 45) {
+    return "Parsing the file tree and deciding which files matter most.";
+  }
+
+  if (progress >= 20) {
+    return "Fetching repository metadata from GitHub.";
+  }
+
+  return "Waiting for the background analysis job to start.";
+}

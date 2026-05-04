@@ -2,10 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, GalleryVerticalEnd } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -22,11 +23,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import { Spinner } from "@/components/ui/spinner";
+import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 const signInSchema = z.object({
   email: z.email("Enter a valid email address."),
@@ -40,6 +39,7 @@ export const SignInForm = ({
   ...props
 }: React.ComponentProps<"div">) => {
   const router = useRouter();
+  const [formError, setFormError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -51,59 +51,80 @@ export const SignInForm = ({
 
   const onContinueWithGithub = async () => {
     let handledError = false;
+    setFormError(null);
     try {
-
-      await authClient.signIn.social(
+      const result = await authClient.signIn.social(
         {
-          provider: "github"
+          provider: "github",
         },
         {
           onSuccess: () => {
-            toast.success("Sign up successfully")
-            router.push("/")
+            toast.success("Sign up successfully");
+            router.push("/");
           },
           onError: (ctx) => {
             handledError = true;
-            toast.error(ctx.error.message)
-          }
-        }
-      )
+            setFormError(ctx.error.message);
+            toast.error(ctx.error.message);
+          },
+        },
+      );
+
+      const resultError = getAuthResultError(result);
+      if (resultError && !handledError) {
+        handledError = true;
+        setFormError(resultError);
+        toast.error(resultError);
+      }
     } catch (error) {
       if (!handledError) {
-        const message = error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
-        toast.error(message)
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.";
+        setFormError(message);
+        toast.error(message);
       }
     }
-  }
+  };
 
   const onSubmit = async (values: SignInFormValues) => {
     let handledError = false;
+    setFormError(null);
     try {
-      await authClient.signIn.email(
+      const result = await authClient.signIn.email(
         {
           email: values.email,
           password: values.password,
-          callbackURL: "/"
+          callbackURL: "/",
         },
         {
           onSuccess: () => {
-            toast.success("Sign in successfully")
-            router.push("/")
+            toast.success("Sign in successfully");
+            router.push("/");
           },
           onError: (ctx) => {
             handledError = true;
-            toast.error(ctx.error.message)
-          }
-        }
-      )
+            setFormError(ctx.error.message);
+            toast.error(ctx.error.message);
+          },
+        },
+      );
+
+      const resultError = getAuthResultError(result);
+      if (resultError && !handledError) {
+        handledError = true;
+        setFormError(resultError);
+        toast.error(resultError);
+      }
     } catch (error) {
       if (!handledError) {
-        const message = error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
-        toast.error(message)
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.";
+        setFormError(message);
+        toast.error(message);
       }
     }
   };
@@ -188,13 +209,23 @@ export const SignInForm = ({
               )}
             />
             <Field>
+              {formError ? (
+                <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+                  {formError}
+                </p>
+              ) : null}
               <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? <Spinner /> : "Sign in"}
               </Button>
             </Field>
             <FieldSeparator>Or</FieldSeparator>
-            <Field >
-              <Button variant="outline" type="button" onClick={onContinueWithGithub} disabled = {isPending}>
+            <Field>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={onContinueWithGithub}
+                disabled={isPending}
+              >
                 <svg
                   aria-hidden="true"
                   focusable="false"
@@ -215,3 +246,25 @@ export const SignInForm = ({
     </div>
   );
 };
+
+function getAuthResultError(result: unknown) {
+  if (!result || typeof result !== "object" || !("error" in result)) {
+    return null;
+  }
+
+  const error = result.error;
+
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  if ("message" in error && typeof error.message === "string") {
+    return error.message;
+  }
+
+  if ("statusText" in error && typeof error.statusText === "string") {
+    return error.statusText;
+  }
+
+  return "Unable to sign in. Check your email and password, then try again.";
+}

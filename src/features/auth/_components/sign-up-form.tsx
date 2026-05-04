@@ -2,10 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, GalleryVerticalEnd } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
-
 import { Button } from "@/components/ui/button";
 import {
   Field,
@@ -22,11 +23,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
-import { useRouter } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
 import { Spinner } from "@/components/ui/spinner";
+import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
 
 const signupSchema = z
   .object({
@@ -64,31 +63,31 @@ export const SignupForm = ({
   const onContinueWithGithub = async () => {
     let handledError = false;
     try {
-
       await authClient.signIn.social(
         {
-          provider: "github"
+          provider: "github",
         },
         {
           onSuccess: () => {
-            toast.success("Sign up successfully")
-            router.push("/")
+            toast.success("Sign up successfully");
+            router.push("/");
           },
           onError: (ctx) => {
             handledError = true;
-            toast.error(ctx.error.message)
-          }
-        }
-      )
+            toast.error(ctx.error.message);
+          },
+        },
+      );
     } catch (error) {
       if (!handledError) {
-        const message = error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
-        toast.error(message)
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.";
+        toast.error(message);
       }
     }
-  }
+  };
 
   const onSubmit = async (values: SignupFormValues) => {
     let handledError = false;
@@ -98,25 +97,26 @@ export const SignupForm = ({
           name: values.name,
           email: values.email,
           password: values.password,
-          callbackURL: "/"
+          callbackURL: "/",
         },
         {
           onSuccess: () => {
-            toast.success("Sign up successfully")
-            router.push("/")
+            toast.success("Sign up successfully");
+            router.push("/");
           },
           onError: (ctx) => {
             handledError = true;
-            toast.error(ctx.error.message)
-          }
-        }
-      )
+            toast.error(ctx.error.message);
+          },
+        },
+      );
     } catch (error) {
       if (!handledError) {
-        const message = error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
-        toast.error(message)
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Something went wrong. Please try again.";
+        toast.error(message);
       }
     }
   };
@@ -251,9 +251,13 @@ export const SignupForm = ({
               </Button>
             </Field>
             <FieldSeparator>Or</FieldSeparator>
-            <Field >
-
-              <Button variant="outline" type="button" onClick={onContinueWithGithub} disabled = {isPending}>
+            <Field>
+              <Button
+                variant="outline"
+                type="button"
+                onClick={onContinueWithGithub}
+                disabled={isPending}
+              >
                 <svg
                   aria-hidden="true"
                   focusable="false"

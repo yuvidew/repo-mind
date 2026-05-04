@@ -38,6 +38,7 @@ type SampledFile = {
 
 type AnalysisOptions = {
   mode?: AnalysisMode;
+  onProgress?: (progress: number) => Promise<void> | void;
 };
 
 type AnalysisLimits = {
@@ -51,18 +52,18 @@ type AnalysisLimits = {
 
 const ANALYSIS_LIMITS: Record<AnalysisMode, AnalysisLimits> = {
   fast: {
-    sampleFiles: 56,
-    totalChars: 150_000,
-    fileChars: 4_000,
-    treeEntries: 120,
+    sampleFiles: 72,
+    totalChars: 190_000,
+    fileChars: 5_000,
+    treeEntries: 180,
     outputTokens: 1400,
     aiTimeoutMs: 20_000,
   },
   deep: {
-    sampleFiles: 80,
-    totalChars: 260_000,
-    fileChars: 10_000,
-    treeEntries: 650,
+    sampleFiles: 140,
+    totalChars: 520_000,
+    fileChars: 12_000,
+    treeEntries: 1200,
     outputTokens: 4200,
     aiTimeoutMs: 85_000,
   },
@@ -71,6 +72,12 @@ const ANALYSIS_LIMITS: Record<AnalysisMode, AnalysisLimits> = {
 const GITHUB_CACHE_SECONDS = 15 * 60;
 const GITHUB_FETCH_TIMEOUT_MS = 8_000;
 const RAW_FETCH_CONCURRENCY = 8;
+const GITHUB_CACHE_OPTION: RequestCache =
+  process.env.NODE_ENV === "development" ? "no-store" : "force-cache";
+const GITHUB_NEXT_OPTIONS =
+  process.env.NODE_ENV === "development"
+    ? undefined
+    : { revalidate: GITHUB_CACHE_SECONDS };
 
 const SKIP_DIRS = new Set([
   ".git",
@@ -131,11 +138,13 @@ const IMPORTANT_NAMES = new Set([
   "next.config.js",
   "next.config.mjs",
   "next.config.ts",
+  "prisma.config.ts",
+  "drizzle.config.ts",
   "vite.config.js",
   "vite.config.ts",
   "tsconfig.json",
-  "prisma.schema",
   "schema.prisma",
+  "drizzle.config.ts",
   "dockerfile",
   "compose.yaml",
   "docker-compose.yml",
@@ -189,10 +198,20 @@ const FEATURE_FILE_PATTERNS = [
 const DATA_FILE_PATTERNS = [
   "schema.prisma",
   "prisma/",
+  "prisma.config",
+  "drizzle",
+  "src/lib/db",
+  "lib/db",
+  "db.",
+  "database.",
   "db/",
   "database",
   "model",
   "repository",
+  "postgres",
+  "neon",
+  "mongoose",
+  "typeorm",
 ];
 
 const FRAMEWORK_DOC_PATTERNS = [
@@ -349,10 +368,12 @@ export async function analyzeRepository(
     `https://api.github.com/repos/${owner}/${repo}`,
     githubHeaders,
   );
+  await options.onProgress?.(72);
   const tree = await getJson<GitHubTree>(
     `https://api.github.com/repos/${owner}/${repo}/git/trees/${metadata.default_branch}?recursive=1`,
     githubHeaders,
   );
+  await options.onProgress?.(78);
 
   const candidates = selectFiles(tree.tree, limits.sampleFiles);
   const sampledFiles = await fetchSampledFiles({
@@ -363,6 +384,7 @@ export async function analyzeRepository(
     headers: githubHeaders,
     limits,
   });
+  await options.onProgress?.(84);
   const warnings: string[] = [];
 
   if (tree.truncated) {
@@ -377,29 +399,39 @@ export async function analyzeRepository(
     );
   }
 
+  if (sampledFiles.length > 0 && sampledFiles.length < 8) {
+    warnings.push(
+      `Only ${sampledFiles.length} readable source files were sampled. This repository has limited analyzable code, so the report and chat answers may be less detailed than usual.`,
+    );
+  }
+
   const detectedStack = inferTechStack(metadata, sampledFiles);
   let analysisSource: AnalysisDebug["source"] = "ai";
 
   const aiResult =
     sampledFiles.length > 0
-      ? await runDeepSeekAnalysis({
-          metadata,
-          tree,
-          sampledFiles,
-          limits,
-          detectedStack,
-        }).catch((error) => {
-          analysisSource = "fallback";
-          const message = error instanceof Error ? error.message : null;
-          warnings.push(
-            message?.includes("timed out")
-              ? `${capitalize(mode)} mode returned fallback output: ${message}`
-              : message
-                ? `AI report unavailable: ${message}`
-                : "AI report unavailable for an unknown reason.",
-          );
-          return null;
-        })
+      ? await (async () => {
+          await options.onProgress?.(90);
+
+          return runDeepSeekAnalysis({
+            metadata,
+            tree,
+            sampledFiles,
+            limits,
+            detectedStack,
+          }).catch((error) => {
+            analysisSource = "fallback";
+            const message = error instanceof Error ? error.message : null;
+            warnings.push(
+              message?.includes("timed out")
+                ? `${capitalize(mode)} mode used fallback output because the AI report timed out. Try Deep reanalyze for a fuller generated report.`
+                : message
+                  ? `AI report unavailable: ${message}`
+                  : "AI report unavailable for an unknown reason.",
+            );
+            return null;
+          });
+        })()
       : null;
 
   if (!aiResult) {
@@ -419,6 +451,7 @@ export async function analyzeRepository(
       provider: "NVIDIA API",
       model: process.env.DEEPSEEK_MODEL ?? "deepseek-ai/deepseek-v4-pro",
       selectedFiles: sampledFiles.map((file) => file.path),
+      sampledFiles,
       detectedStack,
       treeTruncated: tree.truncated,
     },
@@ -479,8 +512,8 @@ async function getJson<T>(
 ): Promise<T> {
   const response = await fetch(url, {
     headers,
-    cache: "force-cache",
-    next: { revalidate: GITHUB_CACHE_SECONDS },
+    cache: GITHUB_CACHE_OPTION,
+    ...(GITHUB_NEXT_OPTIONS ? { next: GITHUB_NEXT_OPTIONS } : {}),
     signal: AbortSignal.timeout(GITHUB_FETCH_TIMEOUT_MS),
   });
 
@@ -769,8 +802,8 @@ async function fetchRawFile(input: {
   const rawUrl = `https://raw.githubusercontent.com/${input.owner}/${input.repo}/${encodePath(input.branch)}/${encodePath(input.file.path)}`;
   const response = await fetch(rawUrl, {
     headers: input.headers,
-    cache: "force-cache",
-    next: { revalidate: GITHUB_CACHE_SECONDS },
+    cache: GITHUB_CACHE_OPTION,
+    ...(GITHUB_NEXT_OPTIONS ? { next: GITHUB_NEXT_OPTIONS } : {}),
     signal: AbortSignal.timeout(GITHUB_FETCH_TIMEOUT_MS),
   });
 
@@ -795,7 +828,7 @@ async function runDeepSeekAnalysis(input: {
 
   if (!apiKey) {
     throw new Error(
-      "Set NVIDIA_API_KEY in .env.local to enable DeepSeek analysis.",
+      "AI analysis is not configured yet. Ask the project owner to enable it.",
     );
   }
 
@@ -804,52 +837,52 @@ async function runDeepSeekAnalysis(input: {
     baseURL:
       process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
   });
-
-  const completion = await withTimeout(
-    openai.chat.completions.create({
-      model: process.env.DEEPSEEK_MODEL ?? "deepseek-ai/deepseek-v4-pro",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a senior software architect explaining real GitHub repositories to beginner developers. Use only the repository tree and sampled source files provided. Be concrete and name actual folders, files, frameworks, APIs, data stores, and background jobs when visible. Return strict compact JSON only. Do not wrap the response in markdown.",
-        },
-        {
-          role: "user",
-          content: buildPrompt(input),
-        },
-      ],
-      temperature: 0.3,
-      top_p: 0.8,
-      max_tokens: input.limits.outputTokens,
-    }),
+  const abortController = new AbortController();
+  const timeout = setTimeout(
+    () => abortController.abort(),
     input.limits.aiTimeoutMs,
-    "AI report timed out. Try Deep mode if you need the full generated explanation.",
   );
 
-  const content = completion.choices[0]?.message?.content;
+  try {
+    const completion = await openai.chat.completions.create(
+      {
+        model: process.env.DEEPSEEK_MODEL ?? "deepseek-ai/deepseek-v4-pro",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a senior software architect explaining real GitHub repositories to beginner developers. Use only the repository tree and sampled source files provided. Be concrete and name actual folders, files, frameworks, APIs, data stores, and background jobs when visible. Return strict compact JSON only. Do not wrap the response in markdown.",
+          },
+          {
+            role: "user",
+            content: buildPrompt(input),
+          },
+        ],
+        temperature: 0.3,
+        top_p: 0.8,
+        max_tokens: input.limits.outputTokens,
+      },
+      { signal: abortController.signal },
+    );
 
-  if (!content) {
-    throw new Error("DeepSeek returned an empty response.");
+    const content = completion.choices[0]?.message?.content;
+
+    if (!content) {
+      throw new Error("DeepSeek returned an empty response.");
+    }
+
+    return parseJsonObject(content);
+  } catch (error) {
+    if (abortController.signal.aborted) {
+      throw new Error(
+        "AI report timed out. Try Deep mode if you need the full generated explanation.",
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return parseJsonObject(content);
-}
-
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-  message: string,
-) {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
-  });
-
-  return Promise.race([promise, timeoutPromise]).finally(() => {
-    if (timeout) clearTimeout(timeout);
-  });
 }
 
 function buildPrompt(input: {
@@ -1042,7 +1075,9 @@ function buildFallbackAnalysis(
     summary:
       readmeSummary.summary ??
       metadata.description ??
-      `${metadata.full_name} is a ${appKind} built with ${stack.slice(0, 6).join(", ")}.`,
+      (stack.length > 0
+        ? `${metadata.full_name} is a ${appKind} built with ${stack.slice(0, 6).join(", ")}.`
+        : `${metadata.full_name} is a ${appKind}. RepoMind could not identify a framework or language from readable sampled source files.`),
     plainEnglish: buildPlainEnglishFallback(
       metadata,
       files,
@@ -1315,6 +1350,9 @@ function buildPlainEnglishFallback(
   readmeSummary: ReturnType<typeof extractReadmeSummary>,
 ) {
   const stackText = stack.slice(0, 8).join(", ");
+  const stackSentence = stackText
+    ? `It uses ${stackText}.`
+    : "RepoMind could not identify a framework or language from readable sampled source files.";
   const entryFile = findFirstFile(files, RUNTIME_FILE_PATTERNS)?.path;
   const readmeText =
     readmeSummary.details.length > 0
@@ -1322,10 +1360,14 @@ function buildPlainEnglishFallback(
       : "";
 
   if (entryFile) {
-    return `${metadata.full_name} appears to be ${inferAppKind(metadata, files, stack)}. It uses ${stackText}. Start at ${entryFile}, then follow the providers, API routes, data files, and feature modules listed below to understand how the app works.${readmeText}`;
+    return `${metadata.full_name} appears to be ${inferAppKind(metadata, files, stack)}. ${stackSentence} Start at ${entryFile}, then follow the providers, API routes, data files, and feature modules listed below to understand how the app works.${readmeText}`;
   }
 
-  return `${metadata.full_name} appears to be ${inferAppKind(metadata, files, stack)}. It uses ${stackText}. The analyzer found the most useful sampled files and built a reading order so a beginner can follow the code without guessing where to start.${readmeText}`;
+  if (files.length === 0) {
+    return `${metadata.full_name} appears to be ${inferAppKind(metadata, files, stack)}. ${stackSentence} This repository has little or no readable source in the sampled tree, so the report is intentionally high level.${readmeText}`;
+  }
+
+  return `${metadata.full_name} appears to be ${inferAppKind(metadata, files, stack)}. ${stackSentence} The analyzer found the most useful sampled files and built a reading order so a beginner can follow the code without guessing where to start.${readmeText}`;
 }
 
 function extractReadmeSummary(files: SampledFile[]) {
@@ -1735,6 +1777,12 @@ function inferTechStack(metadata: GitHubRepo, files: SampledFile[]) {
     if (dependencies.includes('"react"')) stack.add("React");
     if (dependencies.includes('"typescript"')) stack.add("TypeScript");
     if (dependencies.includes('"prisma"')) stack.add("Prisma");
+    if (dependencies.includes('"@prisma/client"')) stack.add("Prisma Client");
+    if (dependencies.includes('"@prisma/adapter-pg"')) stack.add("PostgreSQL");
+    if (dependencies.includes('"pg"')) stack.add("PostgreSQL");
+    if (dependencies.includes('"drizzle-orm"')) stack.add("Drizzle ORM");
+    if (dependencies.includes('"mongoose"')) stack.add("MongoDB/Mongoose");
+    if (dependencies.includes('"mongodb"')) stack.add("MongoDB");
     if (dependencies.includes('"convex"')) stack.add("Convex");
     if (dependencies.includes('"inngest"')) stack.add("Inngest");
     if (dependencies.includes('"@clerk/nextjs"')) stack.add("Clerk");
@@ -1769,6 +1817,13 @@ function inferTechStack(metadata: GitHubRepo, files: SampledFile[]) {
     }
     if (file.path.includes("src/app/")) stack.add("Next.js App Router");
     if (file.path.endsWith("schema.prisma")) stack.add("Prisma");
+    if (file.path.toLowerCase().includes("prisma.config")) stack.add("Prisma");
+    if (file.content.includes('provider = "postgresql"')) {
+      stack.add("PostgreSQL");
+    }
+    if (file.content.includes("PrismaPg") || file.content.includes("pg")) {
+      stack.add("PostgreSQL");
+    }
     if (file.path.startsWith("convex/")) stack.add("Convex");
     if (file.path.includes("inngest/")) stack.add("Inngest");
     if (file.path.includes("api/github/")) stack.add("GitHub API");
@@ -1847,6 +1902,12 @@ function describeFilePurpose(file: SampledFile) {
   if (path.endsWith("schema.prisma")) {
     return "defines the database models and relationships used by the app.";
   }
+  if (path.includes("prisma.config")) {
+    return "configures Prisma commands and how Prisma finds the database schema.";
+  }
+  if (path.includes("lib/db") || path.includes("database")) {
+    return "configures the database client or shared persistence connection used by server code.";
+  }
   if (path.includes("inngest/")) {
     return "defines background jobs or event-driven processing used for longer-running work.";
   }
@@ -1919,12 +1980,14 @@ function readingPriority(path: string) {
   if (lower.includes("page.")) return 7;
   if (lower.startsWith("convex/schema.")) return 8;
   if (lower.startsWith("convex/")) return 9;
+  if (lower.includes("schema.prisma")) return 8;
+  if (lower.includes("prisma.config")) return 9;
+  if (lower.includes("lib/db") || lower.includes("database")) return 10;
   if (lower.includes("inngest/")) return 10;
   if (lower.includes("/api/") || name.startsWith("route.")) return 11;
   if (lower.includes("features/")) return 12;
   if (lower.includes("components/")) return 13;
   if (lower.includes("lib/")) return 14;
-  if (lower.includes("schema.prisma")) return 15;
   return 20;
 }
 

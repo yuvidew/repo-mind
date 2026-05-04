@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { requireApiAuth } from "@/lib/auth-utils";
 import {
-  analyzeAndPersistRepo,
-  createRepoForUser,
-} from "@/lib/repos/repo-service";
+  getRepoAnalysisQueueErrorMessage,
+  queueRepoAnalysis,
+} from "@/inngest/queue";
+import { requireApiAuth } from "@/lib/auth-utils";
+import { createRepoForUser, markRepoFailed } from "@/lib/repos/repo-service";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -28,13 +29,22 @@ export async function POST(request: Request) {
       userId: auth.session.user.id,
     });
 
-    void analyzeAndPersistRepo({
-      mode: body.mode,
-      repoId: repo.id,
-      userId: auth.session.user.id,
-    }).catch((error) => {
-      console.error("Repo analysis failed", error);
-    });
+    try {
+      await queueRepoAnalysis({
+        mode: body.mode,
+        repoId: repo.id,
+        userId: auth.session.user.id,
+      });
+    } catch {
+      const message = getRepoAnalysisQueueErrorMessage();
+      await markRepoFailed({ error: new Error(message), repoId: repo.id });
+
+      return Response.json({
+        id: repo.id,
+        status: "FAILED",
+        warning: message,
+      });
+    }
 
     return Response.json({ id: repo.id, status: repo.status });
   } catch (error) {

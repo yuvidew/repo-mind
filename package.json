@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
     "build": "next build",
     "prisma:dev": "npx prisma studio",
     "migrate:dev": "prisma migrate dev ",
@@ -29,6 +30,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
     "embla-carousel-react": "^8.6.0",
+    "inngest": "^4.2.6",
     "input-otp": "^1.4.2",
     "lucide-react": "^1.14.0",
     "next": "16.2.4",

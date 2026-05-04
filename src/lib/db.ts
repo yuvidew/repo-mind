@@ -8,7 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const cachedPrisma = globalForPrisma.prisma;
 const prisma =
-  cachedPrisma && "repo" in cachedPrisma
+  cachedPrisma && "repo" in cachedPrisma && "chatMessage" in cachedPrisma
     ? cachedPrisma
     : new PrismaClient({ adapter });
 

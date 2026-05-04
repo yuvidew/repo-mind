@@ -1,8 +1,13 @@
 import { z } from "zod";
+import {
+  getRepoAnalysisQueueErrorMessage,
+  queueRepoAnalysis,
+} from "@/inngest/queue";
 import { requireApiAuth } from "@/lib/auth-utils";
 import {
-  analyzeAndPersistRepo,
   getRepoForUser,
+  markRepoFailed,
+  resetRepoAnalysis,
 } from "@/lib/repos/repo-service";
 
 export const runtime = "nodejs";
@@ -34,14 +39,24 @@ export async function POST(
   }
 
   const body = reanalyzeSchema.parse(await request.json().catch(() => ({})));
-
-  void analyzeAndPersistRepo({
+  const updatedRepo = await resetRepoAnalysis({
     mode: body.mode,
     repoId: repo.id,
     userId: auth.session.user.id,
-  }).catch((error) => {
-    console.error("Repo reanalysis failed", error);
   });
 
-  return Response.json({ id: repo.id, status: repo.status });
+  try {
+    await queueRepoAnalysis({
+      mode: body.mode,
+      repoId: repo.id,
+      userId: auth.session.user.id,
+    });
+  } catch {
+    const message = getRepoAnalysisQueueErrorMessage();
+    await markRepoFailed({ error: new Error(message), repoId: repo.id });
+
+    return Response.json({ error: message }, { status: 503 });
+  }
+
+  return Response.json({ id: repo.id, status: updatedRepo.status });
 }

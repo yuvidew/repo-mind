@@ -23,6 +23,7 @@ model User {
   sessions      Session[]
   accounts      Account[]
   repos         Repo[]
+  chatMessages  ChatMessage[]
 
   @@map("user")
 }
@@ -64,6 +65,7 @@ model Repo {
   updatedAt             DateTime    @updatedAt
   files                 File[]
   chunks                RepoChunk[]
+  chatMessages          ChatMessage[]
 
   @@unique([userId, owner, name, branch])
   @@index([userId, status])
@@ -107,6 +109,21 @@ model RepoChunk {
   @@index([repoId])
   @@index([fileId])
   @@index([repoId, path])
+}
+
+model ChatMessage {
+  id           String   @id @default(cuid())
+  repoId       String
+  repo         Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         String
+  content      String
+  metadataJson Json?
+  createdAt    DateTime @default(now())
+
+  @@index([repoId, userId, createdAt])
+  @@index([userId, createdAt])
 }
 
 model Session {
