@@ -104,32 +104,6 @@ export const AccountMenu = ({
           </div>
         </div>
 
-        <DropdownMenuSeparator className="m-0" />
-
-        <DropdownMenuItem className="h-10 gap-3 px-3" asChild>
-          <Link href="/dashboard/account">
-            <BadgeCheck className="text-muted-foreground" />
-            Account
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="h-10 gap-3 px-3" asChild>
-          <Link href="/dashboard/settings">
-            <Settings className="text-muted-foreground" />
-            Settings
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="h-10 gap-3 px-3" asChild>
-          <Link href="/dashboard/billing">
-            <CreditCard className="text-muted-foreground" />
-            Billing
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="h-10 gap-3 px-3" asChild>
-          <Link href="/dashboard/profile">
-            <UserRound className="text-muted-foreground" />
-            Profile
-          </Link>
-        </DropdownMenuItem>
 
         <DropdownMenuSeparator className="m-0" />
 
