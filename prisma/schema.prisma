@@ -59,6 +59,10 @@ model Repo {
   analysisProvider      String?
   analysisModel         String?
   analysisPromptVersion String      @default("v1")
+  analyzedCommitSha     String?
+  latestCommitSha       String?
+  freshnessStatus       String      @default("unknown")
+  lastFreshnessCheckAt  DateTime?
   selectedFilesJson     Json?
   lastAnalyzedAt        DateTime?
   createdAt             DateTime    @default(now())

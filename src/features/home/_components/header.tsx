@@ -16,6 +16,8 @@ const navItems = [
   { href: "#preview", label: "Preview" },
   { href: "#flow", label: "Flow" },
   { href: "#features", label: "Features" },
+  { href: "/discover", label: "Discover" },
+  { href: "/docs", label: "Docs" },
 ];
 
 export const Header = ({
@@ -42,7 +44,11 @@ export const Header = ({
         <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
           {navItems.map((item) => (
             <Button key={item.href} variant="ghost" size="sm" asChild>
-              <a href={item.href}>{item.label}</a>
+              {item.href.startsWith("/") ? (
+                <Link href={item.href}>{item.label}</Link>
+              ) : (
+                <a href={item.href}>{item.label}</a>
+              )}
             </Button>
           ))}
         </nav>

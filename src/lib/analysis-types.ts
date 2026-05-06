@@ -2,6 +2,7 @@ export type DiagramNode = {
   id: string;
   label: string;
   detail?: string;
+  citation?: SourceCitation;
 };
 
 export type DiagramEdge = {
@@ -13,20 +14,45 @@ export type DiagramEdge = {
 export type KeyFile = {
   path: string;
   purpose: string;
+  citation?: SourceCitation;
 };
 
 export type WikiSection = {
   title: string;
   content: string;
+  citations?: SourceCitation[];
 };
 
 export type AnalysisMode = "fast" | "deep";
 
 export type AnalysisSource = "ai" | "fallback";
 
+export type FreshnessStatus = "fresh" | "stale" | "unknown";
+
+export type SourceCitation = {
+  path: string;
+  startLine?: number;
+  endLine?: number;
+  url?: string;
+  source: "github" | "sampled-source" | "report" | "manual";
+  label?: string;
+};
+
+export type AnalysisProvenance = {
+  generatedAt: string;
+  analyzedCommitSha: string | null;
+  latestCommitSha: string | null;
+  freshnessStatus: FreshnessStatus;
+  provider: string;
+  model: string | null;
+  promptVersion: string;
+};
+
 export type SampledFileSnippet = {
   path: string;
   content: string;
+  sha?: string;
+  sourceUrl?: string;
 };
 
 export type AnalysisDebug = {
@@ -52,6 +78,7 @@ export type RepositoryAnalysis = {
     sampledFiles: number;
     analysisMode: AnalysisMode;
   };
+  provenance: AnalysisProvenance;
   summary: string;
   plainEnglish: string;
   techStack: string[];

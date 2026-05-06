@@ -234,7 +234,7 @@ function buildAnalysis(
   repoId: string,
   data: Omit<
     RepositoryAnalysis,
-    "repo" | "risks" | "beginnerGuide" | "debug" | "warnings"
+    "repo" | "provenance" | "risks" | "beginnerGuide" | "debug" | "warnings"
   > & {
     sampledFiles: number;
     stars: number;
@@ -261,6 +261,15 @@ function buildAnalysis(
       analysisMode: data.analysisMode ?? "fast",
     },
     summary: data.summary,
+    provenance: {
+      generatedAt: "2026-05-03T00:00:00.000Z",
+      analyzedCommitSha: repo.analyzedCommitSha ?? null,
+      latestCommitSha: repo.latestCommitSha ?? repo.analyzedCommitSha ?? null,
+      freshnessStatus: repo.freshnessStatus ?? "unknown",
+      provider: "demo",
+      model: "RepoMind demo report",
+      promptVersion: "v1",
+    },
     plainEnglish: data.plainEnglish,
     techStack: data.techStack,
     architecture: data.architecture,

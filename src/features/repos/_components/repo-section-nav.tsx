@@ -19,6 +19,7 @@ export const RepoSectionNav = ({ analysis }: RepoSectionNavProps) => {
     })),
     { id: "beginner-guide", title: "Beginner guide" },
     { id: "key-files", title: "Key files" },
+    { id: "files", title: "Files" },
     { id: "risks", title: "Risks" },
     { id: "debug", title: "Debug" },
   ];
@@ -50,6 +51,12 @@ export const RepoSectionNav = ({ analysis }: RepoSectionNavProps) => {
           <p>
             Generated from {analysis.repo.sampledFiles} selected files out of{" "}
             {analysis.repo.fileCount.toLocaleString()} repository files.
+          </p>
+          <p>
+            Commit{" "}
+            {analysis.provenance.analyzedCommitSha?.slice(0, 7) ??
+              "not captured"}
+            .
           </p>
           <Badge variant="secondary">{analysis.debug.model}</Badge>
         </div>

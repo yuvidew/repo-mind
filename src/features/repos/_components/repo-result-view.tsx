@@ -32,7 +32,7 @@ export const RepoResultView = ({ result }: RepoResultViewProps) => {
 
         <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_340px] lg:items-start">
           <RepoSectionNav analysis={analysis} />
-          <RepoReportContent analysis={analysis} />
+          <RepoReportContent analysis={analysis} repoId={repo.id} />
           <RepoChatPanel repo={repo} />
         </div>
       </div>

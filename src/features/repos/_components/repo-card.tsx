@@ -5,6 +5,7 @@ import {
   ExternalLink,
   FileCode2,
   GitBranch,
+  GitCommitHorizontal,
   LockKeyhole,
   RefreshCw,
   ShieldCheck,
@@ -56,7 +57,7 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
   const isAnalyzing = repo.status === "ANALYZING";
 
   return (
-    <Card className="min-h-[310px] justify-between">
+    <Card className="min-h-77.5 justify-between">
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
@@ -98,8 +99,21 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
             value={repo.fileCount.toLocaleString()}
           />
           <MetaItem icon={Clock3} label="Updated" value={repo.lastAnalyzedAt} />
+          {repo.analyzedCommitSha ? (
+            <MetaItem
+              icon={GitCommitHorizontal}
+              label="Commit"
+              value={repo.analyzedCommitSha.slice(0, 7)}
+            />
+          ) : null}
+          {repo.freshnessStatus ? (
+            <MetaItem
+              icon={ShieldCheck}
+              label="Freshness"
+              value={capitalize(repo.freshnessStatus)}
+            />
+          ) : null}
         </div>
-
         {isAnalyzing ? (
           <div className="space-y-2 rounded-lg border bg-muted/25 p-3">
             <div className="flex items-center justify-between text-sm">
@@ -131,6 +145,10 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
     </Card>
   );
 };
+
+function capitalize(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
 
 function MetaItem({
   icon: Icon,

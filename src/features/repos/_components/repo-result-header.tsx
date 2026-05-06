@@ -1,4 +1,9 @@
-import { ArrowLeft, BrainCircuit, ExternalLink } from "lucide-react";
+import {
+  ArrowLeft,
+  BrainCircuit,
+  ExternalLink,
+  GitCommitHorizontal,
+} from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import type { RepositoryAnalysis } from "@/lib/analysis-types";
 import type { DemoRepo } from "./repo-demo-data";
+import { RepoFreshnessButton } from "./repo-freshness-button";
 import { RepoReanalyzeButton } from "./repo-reanalyze-button";
 
 type RepoResultHeaderProps = {
@@ -44,6 +50,7 @@ export const RepoResultHeader = ({ analysis, repo }: RepoResultHeaderProps) => {
               View GitHub
             </a>
           </Button>
+          <RepoFreshnessButton repoId={repo.id} />
           <RepoReanalyzeButton repoId={repo.id} />
         </div>
       </div>
@@ -93,8 +100,45 @@ export const RepoResultHeader = ({ analysis, repo }: RepoResultHeaderProps) => {
           <Badge className="capitalize" variant="outline">
             {analysis.repo.analysisMode} mode
           </Badge>
+          <Badge className="capitalize" variant="outline">
+            {analysis.provenance.freshnessStatus}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 text-muted-foreground text-xs leading-5">
+          <span>
+            Generated {formatGeneratedAt(analysis.provenance.generatedAt)}
+          </span>
+          <span>
+            {analysis.provenance.provider}
+            {analysis.provenance.model ? ` / ${analysis.provenance.model}` : ""}
+          </span>
+          {analysis.provenance.analyzedCommitSha ? (
+            <a
+              href={`${repo.url}/tree/${analysis.provenance.analyzedCommitSha}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline"
+            >
+              <GitCommitHorizontal className="size-3.5" />
+              {analysis.provenance.analyzedCommitSha.slice(0, 7)}
+            </a>
+          ) : (
+            <span>Commit not captured</span>
+          )}
         </div>
       </div>
     </header>
   );
 };
+
+function formatGeneratedAt(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "recently";
+
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}

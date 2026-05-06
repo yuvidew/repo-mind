@@ -20,14 +20,21 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import type { RepositoryAnalysis, WikiSection } from "@/lib/analysis-types";
+import { RepoCitationLink } from "./repo-citation-link";
 import { RepoDiagram } from "./repo-diagram";
+import { RepoFilesSection } from "./repo-files-section";
 import { slugify } from "./repo-result-utils";
+import { SectionShareButton } from "./section-share-button";
 
 type RepoReportContentProps = {
   analysis: RepositoryAnalysis;
+  repoId: string;
 };
 
-export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
+export const RepoReportContent = ({
+  analysis,
+  repoId,
+}: RepoReportContentProps) => {
   const defaultWikiSections = analysis.wikiSections
     .slice(0, 2)
     .map((section) => slugify(section.title));
@@ -38,7 +45,7 @@ export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
       <SourceCoverage analysis={analysis} />
 
       <section id="overview" className="space-y-3 scroll-mt-24">
-        <h2 className="font-semibold text-2xl tracking-normal">Overview</h2>
+        <SectionTitle id="overview" title="Overview" />
         <p className="text-muted-foreground text-base leading-8">
           {analysis.plainEnglish}
         </p>
@@ -46,7 +53,7 @@ export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
 
       <section id="diagram" className="space-y-3 scroll-mt-24">
         <div className="space-y-1">
-          <h2 className="font-semibold text-2xl tracking-normal">Diagram</h2>
+          <SectionTitle id="diagram" title="Diagram" />
           <p className="text-muted-foreground text-sm leading-6">
             A simplified map of the important code layers and how work moves
             through the repository.
@@ -63,7 +70,7 @@ export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
       <TextSection id="data-flow" title="Data flow" value={analysis.dataFlow} />
 
       <Accordion
-        className="space-y-3"
+        className="space-y-4"
         defaultValue={defaultWikiSections}
         type="multiple"
       >
@@ -73,9 +80,7 @@ export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
       </Accordion>
 
       <section id="beginner-guide" className="space-y-3 scroll-mt-24">
-        <h2 className="font-semibold text-2xl tracking-normal">
-          Beginner guide
-        </h2>
+        <SectionTitle id="beginner-guide" title="Beginner guide" />
         <ol className="list-decimal space-y-2 pl-5 text-muted-foreground text-sm leading-7">
           {analysis.beginnerGuide.map((item) => (
             <li key={item}>{item}</li>
@@ -85,7 +90,7 @@ export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
 
       <section id="key-files" className="space-y-4 scroll-mt-24">
         <div className="space-y-1">
-          <h2 className="font-semibold text-2xl tracking-normal">Key files</h2>
+          <SectionTitle id="key-files" title="Key files" />
           <p className="text-muted-foreground text-sm leading-6">
             Start with these files to understand how the codebase fits together.
           </p>
@@ -100,10 +105,15 @@ export const RepoReportContent = ({ analysis }: RepoReportContentProps) => {
               <p className="mt-1 text-muted-foreground text-sm leading-6">
                 {file.purpose}
               </p>
+              {file.citation ? (
+                <RepoCitationLink citation={file.citation} className="mt-2" />
+              ) : null}
             </div>
           ))}
         </div>
       </section>
+
+      <RepoFilesSection repoId={repoId} />
 
       <section id="risks" className="grid gap-4 scroll-mt-24 md:grid-cols-2">
         <ListCard title="Tech stack" items={analysis.techStack} />
@@ -197,9 +207,18 @@ function TextSection({
 }) {
   return (
     <section id={id} className="space-y-3 scroll-mt-24">
-      <h2 className="font-semibold text-2xl tracking-normal">{title}</h2>
+      <SectionTitle id={id} title={title} />
       <p className="text-muted-foreground text-base leading-8">{value}</p>
     </section>
+  );
+}
+
+function SectionTitle({ id, title }: { id: string; title: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="font-semibold text-2xl tracking-normal">{title}</h2>
+      <SectionShareButton sectionId={id} title={title} />
+    </div>
   );
 }
 
@@ -208,14 +227,30 @@ function WikiSectionView({ section }: { section: WikiSection }) {
 
   return (
     <section id={id} className="scroll-mt-24">
-      <AccordionItem value={id}>
-        <AccordionTrigger className="py-3 text-xl">
-          {section.title}
-        </AccordionTrigger>
-        <AccordionContent>
+      <AccordionItem
+        className="rounded-lg border bg-card/40 px-4 shadow-sm"
+        value={id}
+      >
+        <div className="flex items-center gap-3">
+          <AccordionTrigger className="min-w-0 flex-1 items-center gap-3 py-4 text-xl hover:no-underline">
+            <span className="min-w-0 flex-1 truncate">{section.title}</span>
+          </AccordionTrigger>
+          <SectionShareButton sectionId={id} title={section.title} />
+        </div>
+        <AccordionContent className="pb-4">
           <p className="text-muted-foreground text-base leading-8">
             {section.content}
           </p>
+          {section.citations && section.citations.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {section.citations.map((citation) => (
+                <RepoCitationLink
+                  citation={citation}
+                  key={`${section.title}-${citation.path}-${citation.startLine ?? ""}`}
+                />
+              ))}
+            </div>
+          ) : null}
         </AccordionContent>
       </AccordionItem>
     </section>

@@ -20,6 +20,9 @@ export function toRepoCard(repo: Repo): DemoRepo {
     language: repo.language ?? "Unknown",
     fileCount: repo.fileCount,
     lastAnalyzedAt: formatRepoDate(repo),
+    analyzedCommitSha: repo.analyzedCommitSha,
+    latestCommitSha: repo.latestCommitSha,
+    freshnessStatus: toFreshnessStatus(repo.freshnessStatus),
     progress: repo.progress,
     errorMsg: repo.errorMsg,
   };
@@ -41,6 +44,11 @@ function toUiStatus(status: Repo["status"]): DemoRepo["status"] {
 function parseReport(value: unknown): RepositoryAnalysis | null {
   if (!value || typeof value !== "object") return null;
   return value as RepositoryAnalysis;
+}
+
+function toFreshnessStatus(value: string): DemoRepo["freshnessStatus"] {
+  if (value === "fresh" || value === "stale") return value;
+  return "unknown";
 }
 
 function formatRepoDate(repo: Repo) {

@@ -12,6 +12,9 @@ export type DemoRepo = {
   language: string;
   fileCount: number;
   lastAnalyzedAt: string;
+  analyzedCommitSha?: string | null;
+  latestCommitSha?: string | null;
+  freshnessStatus?: "fresh" | "stale" | "unknown";
   progress?: number;
   errorMsg?: string | null;
 };

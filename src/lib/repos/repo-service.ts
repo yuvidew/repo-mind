@@ -1,9 +1,18 @@
 import "server-only";
 
-import type { AnalysisMode, RepositoryAnalysis } from "@/lib/analysis-types";
+import type { Prisma } from "@/generated/prisma/client";
+import type {
+  AnalysisMode,
+  FreshnessStatus,
+  RepositoryAnalysis,
+} from "@/lib/analysis-types";
 import prisma from "@/lib/db";
 import { analyzeRepository } from "@/lib/repo-analyzer";
-import { fetchGitHubRepoMetadata } from "./github";
+import {
+  fetchGitHubBranchCommitSha,
+  fetchGitHubRawFile,
+  fetchGitHubRepoMetadata,
+} from "./github";
 import { parseGitHubRepoUrl } from "./repo-url";
 
 type RepoProgressStatus = "FETCHING" | "PARSING" | "REPORTING";
@@ -43,6 +52,7 @@ export async function createRepoForUser(input: CreateRepoInput) {
       status: "PENDING",
       progress: 5,
       analysisMode: input.mode,
+      freshnessStatus: "unknown",
     },
     update: {
       url: metadata.html_url || parsed.normalizedUrl,
@@ -53,6 +63,7 @@ export async function createRepoForUser(input: CreateRepoInput) {
       progress: 5,
       errorMsg: null,
       analysisMode: input.mode,
+      freshnessStatus: "unknown",
     },
   });
 
@@ -71,6 +82,158 @@ export async function getRepoForUser(input: { id: string; userId: string }) {
     where: {
       id: input.id,
       userId: input.userId,
+    },
+  });
+}
+
+export async function listRepoFilesForUser(input: {
+  repoId: string;
+  userId: string;
+}) {
+  const repo = await getRepoForUser({ id: input.repoId, userId: input.userId });
+
+  if (!repo) return null;
+
+  return prisma.file.findMany({
+    where: { repoId: input.repoId },
+    orderBy: { path: "asc" },
+    select: {
+      id: true,
+      isBinary: true,
+      language: true,
+      path: true,
+      sha: true,
+      sizeBytes: true,
+      skippedReason: true,
+      summary: true,
+      updatedAt: true,
+    },
+  });
+}
+
+export async function getRepoFileForUser(input: {
+  path: string;
+  repoId: string;
+  userId: string;
+}) {
+  const repo = await getRepoForUser({ id: input.repoId, userId: input.userId });
+
+  if (!repo) return null;
+
+  return prisma.file.findUnique({
+    where: {
+      repoId_path: {
+        repoId: input.repoId,
+        path: input.path,
+      },
+    },
+    select: {
+      content: true,
+      id: true,
+      isBinary: true,
+      language: true,
+      path: true,
+      sha: true,
+      sizeBytes: true,
+      skippedReason: true,
+      summary: true,
+      updatedAt: true,
+    },
+  });
+}
+
+export async function getRepoFileWithLazyContentForUser(input: {
+  path: string;
+  repoId: string;
+  userId: string;
+}) {
+  const repo = await getRepoForUser({ id: input.repoId, userId: input.userId });
+
+  if (!repo) return null;
+
+  const file = await getRepoFileForUser(input);
+
+  if (!file || file.content || file.isBinary || file.skippedReason) {
+    return file;
+  }
+
+  const content = await fetchGitHubRawFile({
+    branch: repo.analyzedCommitSha ?? repo.branch,
+    name: repo.name,
+    owner: repo.owner,
+    path: file.path,
+  });
+
+  if (!content) return file;
+
+  const updatedFile = await prisma.file.update({
+    where: {
+      repoId_path: {
+        repoId: input.repoId,
+        path: input.path,
+      },
+    },
+    data: {
+      content,
+      sizeBytes: content.length,
+    },
+    select: {
+      content: true,
+      id: true,
+      isBinary: true,
+      language: true,
+      path: true,
+      sha: true,
+      sizeBytes: true,
+      skippedReason: true,
+      summary: true,
+      updatedAt: true,
+    },
+  });
+
+  await prisma.repoChunk.create({
+    data: {
+      content,
+      fileId: updatedFile.id,
+      path: updatedFile.path,
+      repoId: input.repoId,
+      source: "lazy-github-source",
+      tokenEstimate: Math.ceil(content.length / 4),
+    },
+  });
+
+  return updatedFile;
+}
+
+export async function refreshRepoFreshnessForUser(input: {
+  repoId: string;
+  userId: string;
+}) {
+  const repo = await getRepoForUser({ id: input.repoId, userId: input.userId });
+
+  if (!repo) return null;
+
+  const latestCommitSha = await fetchGitHubBranchCommitSha({
+    branch: repo.branch,
+    name: repo.name,
+    owner: repo.owner,
+  });
+  const freshnessStatus = getFreshnessStatus({
+    analyzedCommitSha: repo.analyzedCommitSha,
+    latestCommitSha,
+  });
+  const reportJson = updateReportFreshness(repo.reportJson, {
+    freshnessStatus,
+    latestCommitSha,
+  });
+
+  return prisma.repo.update({
+    where: { id: input.repoId },
+    data: {
+      freshnessStatus,
+      lastFreshnessCheckAt: new Date(),
+      latestCommitSha,
+      reportJson,
     },
   });
 }
@@ -204,12 +367,16 @@ export async function persistRepoAnalysis(input: {
   const keyFileByPath = new Map(
     input.analysis.keyFiles.map((file) => [file.path, file.purpose]),
   );
-  const fileRows = new Map<string, { content?: string; summary?: string }>();
+  const fileRows = new Map<
+    string,
+    { content?: string; sha?: string; summary?: string }
+  >();
 
   for (const file of sampledFiles) {
     fileRows.set(file.path, {
       content: file.content,
       summary: keyFileByPath.get(file.path),
+      sha: file.sha,
     });
   }
 
@@ -231,6 +398,7 @@ export async function persistRepoAnalysis(input: {
         content: file.content,
         repoId: input.repoId,
         path,
+        sha: file.sha,
         summary: file.summary,
         sizeBytes: file.content?.length ?? 0,
       },
@@ -306,6 +474,11 @@ export async function persistRepoAnalysis(input: {
       totalBytes: 0,
       analysisProvider: input.analysis.debug.provider,
       analysisModel: input.analysis.debug.model,
+      analysisPromptVersion: input.analysis.provenance.promptVersion,
+      analyzedCommitSha: input.analysis.provenance.analyzedCommitSha,
+      latestCommitSha: input.analysis.provenance.latestCommitSha,
+      freshnessStatus: input.analysis.provenance.freshnessStatus,
+      lastFreshnessCheckAt: new Date(),
     },
   });
 }
@@ -316,4 +489,36 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80);
+}
+
+function getFreshnessStatus(input: {
+  analyzedCommitSha: string | null;
+  latestCommitSha: string | null;
+}): FreshnessStatus {
+  if (!(input.analyzedCommitSha && input.latestCommitSha)) return "unknown";
+
+  return input.analyzedCommitSha === input.latestCommitSha ? "fresh" : "stale";
+}
+
+function updateReportFreshness(
+  value: unknown,
+  input: {
+    freshnessStatus: FreshnessStatus;
+    latestCommitSha: string | null;
+  },
+): Prisma.InputJsonValue | undefined {
+  if (!value || typeof value !== "object") return undefined;
+
+  const report = value as RepositoryAnalysis;
+
+  if (!report.provenance) return value as Prisma.InputJsonValue;
+
+  return {
+    ...report,
+    provenance: {
+      ...report.provenance,
+      freshnessStatus: input.freshnessStatus,
+      latestCommitSha: input.latestCommitSha,
+    },
+  } as Prisma.InputJsonValue;
 }

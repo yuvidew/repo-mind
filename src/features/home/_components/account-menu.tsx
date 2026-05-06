@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  BadgeCheck,
-  CreditCard,
-  LogOut,
-  Settings,
-  UserRound,
-} from "lucide-react";
-import Link from "next/link";
+import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -103,7 +96,6 @@ export const AccountMenu = ({
             ) : null}
           </div>
         </div>
-
 
         <DropdownMenuSeparator className="m-0" />
 

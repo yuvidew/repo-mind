@@ -5,6 +5,7 @@ import type {
   DiagramEdge,
   DiagramNode,
   RepositoryAnalysis,
+  SourceCitation,
 } from "@/lib/analysis-types";
 
 type GitHubRepo = {
@@ -31,9 +32,17 @@ type GitHubTree = {
   truncated: boolean;
 };
 
+type GitHubBranch = {
+  commit?: {
+    sha?: string;
+  };
+};
+
 type SampledFile = {
   path: string;
   content: string;
+  sha?: string;
+  sourceUrl?: string;
 };
 
 type AnalysisOptions = {
@@ -368,6 +377,11 @@ export async function analyzeRepository(
     `https://api.github.com/repos/${owner}/${repo}`,
     githubHeaders,
   );
+  const branch = await getJson<GitHubBranch>(
+    `https://api.github.com/repos/${owner}/${repo}/branches/${encodeURIComponent(metadata.default_branch)}`,
+    githubHeaders,
+  );
+  const analyzedCommitSha = branch.commit?.sha ?? null;
   await options.onProgress?.(72);
   const tree = await getJson<GitHubTree>(
     `https://api.github.com/repos/${owner}/${repo}/git/trees/${metadata.default_branch}?recursive=1`,
@@ -442,6 +456,7 @@ export async function analyzeRepository(
     aiResult,
     metadata,
     repoUrl,
+    analyzedCommitSha,
     sampledFiles,
     totalFiles: tree.tree.filter((item) => item.type === "blob").length,
     mode,
@@ -810,7 +825,35 @@ async function fetchRawFile(input: {
   if (!response.ok) return null;
 
   const content = (await response.text()).slice(0, input.limits.fileChars);
-  return { path: input.file.path, content };
+  return {
+    path: input.file.path,
+    content,
+    sha: input.file.sha,
+    sourceUrl: buildGitHubSourceUrl({
+      owner: input.owner,
+      repo: input.repo,
+      branch: input.branch,
+      path: input.file.path,
+    }),
+  };
+}
+
+function buildGitHubSourceUrl(input: {
+  owner: string;
+  repo: string;
+  branch: string;
+  path: string;
+}) {
+  return `https://github.com/${input.owner}/${input.repo}/blob/${encodePath(input.branch)}/${encodePath(input.path)}`;
+}
+
+function sourceCitationForFile(file: SampledFile) {
+  return {
+    path: file.path,
+    url: file.sourceUrl,
+    source: "sampled-source" as const,
+    label: file.path,
+  };
 }
 
 function encodePath(path: string) {
@@ -936,7 +979,7 @@ Return JSON with exactly this shape:
   "architecture": "Step 1: ... Step 2: ... Step 3: ... Explain frontend, backend/API, data layer, jobs, AI/editor systems, and integrations when visible.",
   "dataFlow": "Step 1: ... Step 2: ... Step 3: ... Trace one realistic user action through UI, API/server, database/jobs/AI, and back to UI.",
   "keyFiles": [{ "path": "file path", "purpose": "what this file does in the code flow" }],
-  "wikiSections": [{ "title": "section title", "content": "plain-English documentation section with concrete file/folder evidence" }],
+  "wikiSections": [{ "title": "section title", "content": "plain-English documentation section with concrete file/folder evidence", "citations": [{ "path": "file path", "source": "report", "label": "short label" }] }],
   "risks": ["specific risk, missing piece, or uncertainty from the sampled code"],
   "beginnerGuide": ["Step 1: read file path because reason"],
   "diagram": {
@@ -963,6 +1006,7 @@ Wiki section rules:
 - For applications, use section titles a beginner would expect, such as Introduction, App Entry, Authentication, Data Model, API Routes, Background Jobs, AI Features, Editor System, Preview Runtime, GitHub Import/Export, Configuration, and Reading Path.
 - For frameworks or large monorepos, use section titles like Contribution Guidelines, Core Development Workflow, Testing and Debugging, Repository Management, Development Environment, Core Build System, Compiler Engine, Benchmarking, Ecosystem Utilities, Error Handling, and Comprehensive Testing Suite.
 - Each section must be plain English and explain what that layer does, why it exists, and which files show it.
+- When a section depends on specific files, include citations with paths from the selected files list.
 - Do not invent sections that are not supported by the selected files or repository tree.
 
 Repository tree sample:
@@ -994,6 +1038,7 @@ function normalizeAnalysis(input: {
   aiResult: Partial<RepositoryAnalysis> | null;
   metadata: GitHubRepo;
   repoUrl: string;
+  analyzedCommitSha: string | null;
   sampledFiles: SampledFile[];
   totalFiles: number;
   mode: AnalysisMode;
@@ -1021,6 +1066,15 @@ function normalizeAnalysis(input: {
       fileCount: input.totalFiles,
       sampledFiles: input.sampledFiles.length,
       analysisMode: input.mode,
+    },
+    provenance: {
+      generatedAt: new Date().toISOString(),
+      analyzedCommitSha: input.analyzedCommitSha,
+      latestCommitSha: input.analyzedCommitSha,
+      freshnessStatus: input.analyzedCommitSha ? "fresh" : "unknown",
+      provider: input.debug.provider,
+      model: input.debug.model,
+      promptVersion: "v1",
     },
     summary: asText(result.summary, fallback.summary),
     plainEnglish: asText(result.plainEnglish, fallback.plainEnglish),
@@ -1052,6 +1106,7 @@ function buildFallbackAnalysis(
     .map((file) => ({
       path: file.path,
       purpose: describeFilePurpose(file),
+      citation: sourceCitationForFile(file),
     }));
   const diagram = buildCodeFlowDiagram(files, metadata);
   const beginnerGuide = buildStepByStepGuide(files);
@@ -1071,6 +1126,15 @@ function buildFallbackAnalysis(
       fileCount: files.length,
       sampledFiles: files.length,
       analysisMode: "fast",
+    },
+    provenance: {
+      generatedAt: new Date().toISOString(),
+      analyzedCommitSha: null,
+      latestCommitSha: null,
+      freshnessStatus: "unknown",
+      provider: "local fallback",
+      model: null,
+      promptVersion: "v1",
     },
     summary:
       readmeSummary.summary ??
@@ -1319,6 +1383,7 @@ function sectionFromFile(
   return {
     title,
     content: `${fallbackContent} Evidence in this repo: ${paths}.`,
+    citations: matches.slice(0, 6).map(sourceCitationForFile),
   };
 }
 
@@ -2065,9 +2130,63 @@ function normalizeWikiSections(
         );
       },
     )
+    .map((section) => ({
+      title: section.title.trim(),
+      content: section.content.trim(),
+      citations: normalizeCitations(section.citations),
+    }))
     .slice(0, 12);
 
   return sections.length > 0 ? sections : fallback;
+}
+
+function normalizeCitations(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+
+  const citations = value
+    .filter(
+      (citation): citation is Record<string, unknown> & { path: string } => {
+        return (
+          typeof citation === "object" &&
+          citation !== null &&
+          "path" in citation &&
+          typeof citation.path === "string" &&
+          citation.path.trim().length > 0
+        );
+      },
+    )
+    .map((citation) => ({
+      path: citation.path.trim(),
+      startLine:
+        "startLine" in citation && typeof citation.startLine === "number"
+          ? citation.startLine
+          : undefined,
+      endLine:
+        "endLine" in citation && typeof citation.endLine === "number"
+          ? citation.endLine
+          : undefined,
+      url:
+        "url" in citation && typeof citation.url === "string"
+          ? citation.url
+          : undefined,
+      source: normalizeCitationSource(citation.source),
+      label:
+        "label" in citation && typeof citation.label === "string"
+          ? citation.label
+          : undefined,
+    }))
+    .slice(0, 8);
+
+  return citations.length > 0 ? citations : undefined;
+}
+
+function normalizeCitationSource(value: unknown): SourceCitation["source"] {
+  return value === "github" ||
+    value === "sampled-source" ||
+    value === "report" ||
+    value === "manual"
+    ? value
+    : "report";
 }
 
 function normalizeNodes(value: unknown, fallback: DiagramNode[]) {

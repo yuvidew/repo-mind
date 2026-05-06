@@ -1,6 +1,6 @@
 "use client";
 
-import { Bot, Loader2, RefreshCw, Send } from "lucide-react";
+import { Bot, Loader2, RefreshCw, Send, Square } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,6 +36,7 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
     null,
   );
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const activeRequestRef = useRef<AbortController | null>(null);
   const lastScrollKeyRef = useRef("");
   const isReady = repo.status === "READY";
   const lastMessage = messages.at(-1);
@@ -121,12 +122,15 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
       userMessage,
       assistantMessage,
     ]);
+    const abortController = new AbortController();
+    activeRequestRef.current = abortController;
 
     try {
       const response = await fetch(`/api/repos/${repo.id}/chat`, {
         body: JSON.stringify({ message: trimmedMessage }),
         headers: { "Content-Type": "application/json" },
         method: "POST",
+        signal: abortController.signal,
       });
 
       if (!response.ok || !response.body) {
@@ -163,6 +167,22 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
         );
       }
     } catch (sendError) {
+      if (abortController.signal.aborted) {
+        setMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === assistantId
+              ? {
+                  ...message,
+                  content: message.content.trim()
+                    ? `${message.content}\n\nStopped by user.`
+                    : "Stopped by user.",
+                }
+              : message,
+          ),
+        );
+        return;
+      }
+
       setError(
         sendError instanceof Error
           ? sendError.message
@@ -174,8 +194,13 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
       );
       setInput(trimmedMessage);
     } finally {
+      activeRequestRef.current = null;
       setIsStreaming(false);
     }
+  }
+
+  function stopStreaming() {
+    activeRequestRef.current?.abort();
   }
 
   return (
@@ -290,6 +315,17 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
                 }
                 value={input}
               />
+              {isStreaming ? (
+                <Button
+                  aria-label="Stop response"
+                  onClick={stopStreaming}
+                  size="icon"
+                  type="button"
+                  variant="outline"
+                >
+                  <Square className="size-4" />
+                </Button>
+              ) : null}
               <Button
                 disabled={!input.trim() || !isReady || isStreaming}
                 size="icon"
@@ -395,7 +431,7 @@ function MarkdownTable({ lines }: { lines: string[] }) {
 
   return (
     <div className="max-w-full overflow-hidden rounded-md border bg-background/60">
-      <table className="w-full table-fixed text-left text-xs leading-5 [&_code]:whitespace-normal [&_code]:break-words [&_strong]:break-words">
+      <table className="w-full table-fixed text-left text-xs leading-5 [&_code]:whitespace-normal [&_code]:wrap-break-word [&_strong]:wrap-break-word">
         <thead className="bg-muted/60">
           <tr>
             {keyedHeaders.map(({ key, value: header }, index) => (
@@ -419,7 +455,7 @@ function MarkdownTable({ lines }: { lines: string[] }) {
               <tr key={key}>
                 {keyedCells.map(({ key: cellKey, value: cell }) => (
                   <td
-                    className="border-t px-2 py-1.5 align-top whitespace-normal break-words"
+                    className="border-t px-2 py-1.5 align-top whitespace-normal wrap-break-word"
                     key={cellKey}
                   >
                     {renderInline(cell)}

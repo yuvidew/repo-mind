@@ -1,5 +1,8 @@
 import { requireApiAuth } from "@/lib/auth-utils";
-import { getRepoForUser } from "@/lib/repos/repo-service";
+import {
+  getRepoForUser,
+  refreshRepoFreshnessForUser,
+} from "@/lib/repos/repo-service";
 
 type RepoStatusRouteContext = {
   params: Promise<{ id: string }>;
@@ -16,7 +19,15 @@ export async function GET(
   }
 
   const { id } = await params;
-  const repo = await getRepoForUser({ id, userId: auth.session.user.id });
+  const url = new URL(request.url);
+  const shouldRefreshFreshness =
+    url.searchParams.get("refreshFreshness") === "1";
+  const repo = shouldRefreshFreshness
+    ? await refreshRepoFreshnessForUser({
+        repoId: id,
+        userId: auth.session.user.id,
+      })
+    : await getRepoForUser({ id, userId: auth.session.user.id });
 
   if (!repo) {
     return Response.json({ error: "Repository not found." }, { status: 404 });
@@ -25,6 +36,10 @@ export async function GET(
   return Response.json({
     errorMsg: repo.errorMsg,
     id: repo.id,
+    analyzedCommitSha: repo.analyzedCommitSha,
+    freshnessStatus: repo.freshnessStatus,
+    latestCommitSha: repo.latestCommitSha,
+    lastFreshnessCheckAt: repo.lastFreshnessCheckAt,
     progress: repo.progress,
     status: repo.status,
     updatedAt: repo.updatedAt,
