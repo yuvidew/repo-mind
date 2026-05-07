@@ -136,9 +136,11 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
           </a>
         </Button>
         {isFailed ? (
-          <Button size="sm" variant="destructive" className="ml-auto">
-            <RefreshCw />
-            Retry
+          <Button size="sm" variant="destructive" className="ml-auto" asChild>
+            <Link href={`/repos/${repo.id}`}>
+              <RefreshCw />
+              Retry
+            </Link>
           </Button>
         ) : null}
       </CardFooter>

@@ -1,7 +1,8 @@
 "use client";
 
-import { BookOpen, ExternalLink, Search } from "lucide-react";
+import { BookOpen, ExternalLink, Loader2, Search } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,10 @@ const featuredRepos = [
 ];
 
 export const DiscoverReposView = () => {
+  const router = useRouter();
   const [query, setQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pendingRepoName, setPendingRepoName] = useState<string | null>(null);
   const visibleRepos = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -55,6 +59,39 @@ export const DiscoverReposView = () => {
         .includes(normalizedQuery),
     );
   }, [query]);
+
+  const startAnalysis = async (repo: (typeof featuredRepos)[number]) => {
+    setError(null);
+    setPendingRepoName(repo.name);
+
+    try {
+      const response = await fetch("/api/repos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "fast", url: repo.url }),
+      });
+      const data = (await response.json()) as { error?: string; id?: string };
+
+      if (response.status === 401) {
+        router.push("/sign-in");
+        return;
+      }
+
+      if (!response.ok || !data.id) {
+        throw new Error(data.error ?? "Unable to create repository.");
+      }
+
+      router.push(`/repos/${data.id}`);
+      router.refresh();
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      );
+      setPendingRepoName(null);
+    }
+  };
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -80,7 +117,7 @@ export const DiscoverReposView = () => {
               </Link>
             </Button>
             <Button asChild>
-              <Link href="/sign-in">Analyze your repo</Link>
+              <Link href="/repos">Analyze your repo</Link>
             </Button>
           </div>
         </header>
@@ -95,6 +132,7 @@ export const DiscoverReposView = () => {
               value={query}
             />
           </div>
+          {error ? <p className="text-destructive text-sm">{error}</p> : null}
 
           <div className="grid gap-4 md:grid-cols-2">
             {visibleRepos.map((repo) => (
@@ -123,8 +161,17 @@ export const DiscoverReposView = () => {
                         GitHub
                       </a>
                     </Button>
-                    <Button asChild>
-                      <Link href="/sign-in">Analyze</Link>
+                    <Button
+                      type="button"
+                      disabled={pendingRepoName !== null}
+                      onClick={() => startAnalysis(repo)}
+                    >
+                      {pendingRepoName === repo.name ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Search />
+                      )}
+                      {pendingRepoName === repo.name ? "Opening" : "Analyze"}
                     </Button>
                   </div>
                 </CardContent>

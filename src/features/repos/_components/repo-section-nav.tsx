@@ -1,5 +1,6 @@
 import { BookOpenText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { RepositoryAnalysis } from "@/lib/analysis-types";
 import { slugify } from "./repo-result-utils";
 
@@ -25,42 +26,44 @@ export const RepoSectionNav = ({ analysis }: RepoSectionNavProps) => {
   ];
 
   return (
-    <aside className="hidden lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-      <div className="space-y-5 border-r pr-5">
-        <div className="flex items-center gap-2 font-semibold">
-          <BookOpenText className="size-4 text-primary" />
-          Repo Wiki
-        </div>
-        <nav className="space-y-2">
-          <p className="font-medium text-muted-foreground text-xs uppercase">
-            On this page
-          </p>
-          <div className="space-y-1 border-l pl-3">
-            {links.map((link) => (
-              <a
-                key={link.id}
-                href={`#${link.id}`}
-                className="block text-muted-foreground text-sm leading-5 transition-colors hover:text-foreground"
-              >
-                {link.title}
-              </a>
-            ))}
+    <aside className="hidden lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)]">
+      <ScrollArea className="h-[calc(100vh-3rem)] pr-4 **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45 **:data-[slot=scroll-area-viewport]:pr-3">
+        <div className="space-y-5 border-r pr-5">
+          <div className="flex items-center gap-2 font-semibold">
+            <BookOpenText className="size-4 text-primary" />
+            Repo Wiki
           </div>
-        </nav>
-        <div className="space-y-2 border-t pt-4 text-muted-foreground text-xs leading-5">
-          <p>
-            Generated from {analysis.repo.sampledFiles} selected files out of{" "}
-            {analysis.repo.fileCount.toLocaleString()} repository files.
-          </p>
-          <p>
-            Commit{" "}
-            {analysis.provenance.analyzedCommitSha?.slice(0, 7) ??
-              "not captured"}
-            .
-          </p>
-          <Badge variant="secondary">{analysis.debug.model}</Badge>
+          <nav className="space-y-2">
+            <p className="font-medium text-muted-foreground text-xs uppercase">
+              On this page
+            </p>
+            <div className="space-y-1 border-l pl-3">
+              {links.map((link) => (
+                <a
+                  key={link.id}
+                  href={`#${link.id}`}
+                  className="block text-muted-foreground text-sm leading-5 transition-colors hover:text-foreground"
+                >
+                  {link.title}
+                </a>
+              ))}
+            </div>
+          </nav>
+          <div className="space-y-2 border-t pt-4 text-muted-foreground text-xs leading-5">
+            <p>
+              Generated from {analysis.repo.sampledFiles} selected files out of{" "}
+              {analysis.repo.fileCount.toLocaleString()} repository files.
+            </p>
+            <p>
+              Commit{" "}
+              {analysis.provenance.analyzedCommitSha?.slice(0, 7) ??
+                "not captured"}
+              .
+            </p>
+            <Badge variant="secondary">{analysis.debug.model}</Badge>
+          </div>
         </div>
-      </div>
+      </ScrollArea>
     </aside>
   );
 };
