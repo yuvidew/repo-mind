@@ -61,20 +61,20 @@ type AnalysisLimits = {
 
 const ANALYSIS_LIMITS: Record<AnalysisMode, AnalysisLimits> = {
   fast: {
-    sampleFiles: 72,
-    totalChars: 190_000,
-    fileChars: 5_000,
+    sampleFiles: 48,
+    totalChars: 95_000,
+    fileChars: 3_500,
     treeEntries: 180,
-    outputTokens: 1400,
-    aiTimeoutMs: 20_000,
+    outputTokens: 2200,
+    aiTimeoutMs: 45_000,
   },
   deep: {
-    sampleFiles: 140,
-    totalChars: 520_000,
-    fileChars: 12_000,
-    treeEntries: 1200,
-    outputTokens: 4200,
-    aiTimeoutMs: 85_000,
+    sampleFiles: 110,
+    totalChars: 300_000,
+    fileChars: 8_500,
+    treeEntries: 900,
+    outputTokens: 5200,
+    aiTimeoutMs: 105_000,
   },
 };
 
@@ -364,6 +364,16 @@ const CONFIG_FILE_NAMES = new Set([
   "vite.config.ts",
   "tsconfig.json",
 ]);
+
+const ANALYSIS_PROMPT_VERSION = "v2";
+
+const REPOSITORY_ANALYSIS_SYSTEM_PROMPT = `You are RepoMind's repository intelligence analyst: a senior software architect who turns real GitHub repositories into trustworthy, beginner-friendly technical documentation.
+
+Use only the provided repository metadata, detected stack, repository tree, selected file list, and sampled source files. Treat those inputs as the complete evidence set for this run. Be concrete and evidence-first: name actual folders, files, dependencies, route handlers, schemas, services, jobs, AI/model integrations, and external APIs only when they are visible in the evidence. Distinguish observed facts from reasonable inferences. If an important area is missing from the sampled files, say it is not visible in the sampled files instead of inventing details.
+
+Produce a CodeWiki-quality repository explanation: identify the repo type, product purpose, main user workflows, runtime architecture, API/server boundaries, data/storage layer, auth/security boundaries, background jobs, AI/editor systems, integrations, important files, risks, and a beginner reading path when evidence supports them. Avoid generic software-project explanations, framework tutorials, marketing copy, hallucinated technologies, unsupported file paths, and vague claims.
+
+Return only strict compact JSON matching the exact requested shape from the user message. Do not include markdown, code fences, comments, extra keys, or commentary outside JSON. Keep strings concise but useful. Use citations with paths from the selected files list whenever a wiki section or key claim depends on specific files. Diagram node ids must be lowercase slugs, and every edge must reference existing node ids.`;
 
 export async function analyzeRepository(
   repoUrl: string,
@@ -893,8 +903,7 @@ async function runDeepSeekAnalysis(input: {
         messages: [
           {
             role: "system",
-            content:
-              "You are a senior software architect explaining real GitHub repositories to beginner developers. Use only the repository tree and sampled source files provided. Be concrete and name actual folders, files, frameworks, APIs, data stores, and background jobs when visible. Return strict compact JSON only. Do not wrap the response in markdown.",
+            content: REPOSITORY_ANALYSIS_SYSTEM_PROMPT,
           },
           {
             role: "user",
@@ -953,14 +962,17 @@ function buildPrompt(input: {
       ? input.detectedStack.join(", ")
       : "unknown from static scan";
 
-  return `Analyze this GitHub repository and return a detailed but beginner-friendly project report.
+  return `Analyze this GitHub repository and return a detailed, source-grounded wiki report for beginner developers.
 
 Important rules:
-- Do not give a generic software-project explanation.
-- Base the answer on actual files, folders, dependencies, route handlers, database schemas, jobs, and feature modules below.
-- If something is not visible in the sampled files, say that it is not visible instead of inventing it.
-- Prefer plain English, but include concrete filenames so the user can verify the explanation.
-- The diagram must describe the application's runtime/code flow, not your analysis process.
+- First classify the repository as an application, framework/library, CLI/tooling package, infrastructure repo, or monorepo.
+- Do not give a generic software-project explanation or a tutorial about the framework.
+- Base every important claim on actual files, folders, dependencies, route handlers, database schemas, jobs, feature modules, and integrations below.
+- If something is not visible in the sampled files, explicitly say it is not visible in the sampled files instead of inventing it.
+- Prefer plain English for beginners, but include concrete filenames so the user can verify each explanation.
+- Explain how a real user action or developer workflow moves through UI/entry points, server/API code, data/storage, jobs/AI/integrations, and back to the user when visible.
+- Prioritize source-grounded wiki sections over broad summaries. Each section should explain what the layer does, why it exists, and which files prove it.
+- The diagram must describe the repository's runtime/code flow, not your analysis process.
 
 Repository metadata:
 - name: ${input.metadata.full_name}
@@ -1008,6 +1020,8 @@ Wiki section rules:
 - Each section must be plain English and explain what that layer does, why it exists, and which files show it.
 - When a section depends on specific files, include citations with paths from the selected files list.
 - Do not invent sections that are not supported by the selected files or repository tree.
+- Avoid empty filler sections. Prefer fewer strong sections over many weak sections.
+- Include uncertainty and missing evidence in risks instead of hiding it.
 
 Repository tree sample:
 ${fileTree}
@@ -1074,7 +1088,7 @@ function normalizeAnalysis(input: {
       freshnessStatus: input.analyzedCommitSha ? "fresh" : "unknown",
       provider: input.debug.provider,
       model: input.debug.model,
-      promptVersion: "v1",
+      promptVersion: ANALYSIS_PROMPT_VERSION,
     },
     summary: asText(result.summary, fallback.summary),
     plainEnglish: asText(result.plainEnglish, fallback.plainEnglish),
