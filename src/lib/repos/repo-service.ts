@@ -13,6 +13,7 @@ import {
   fetchGitHubRawFile,
   fetchGitHubRepoMetadata,
 } from "./github";
+import { tryEmbedAndPersistRepoChunks } from "./repo-embeddings";
 import { parseGitHubRepoUrl } from "./repo-url";
 
 type RepoProgressStatus = "FETCHING" | "PARSING" | "REPORTING";
@@ -22,6 +23,21 @@ type CreateRepoInput = {
   url: string;
   userId: string;
 };
+
+type RepoChunkCreateInput = {
+  content: string;
+  endLine?: number;
+  fileId?: string;
+  path: string;
+  repoId: string;
+  source: string;
+  startLine?: number;
+  tokenEstimate: number;
+};
+
+const SOURCE_CHUNK_MAX_LINES = 80;
+const SOURCE_CHUNK_OVERLAP_LINES = 12;
+const SOURCE_CHUNK_MAX_CHARS = 5_000;
 
 export async function createRepoForUser(input: CreateRepoInput) {
   const parsed = parseGitHubRepoUrl(input.url);
@@ -191,16 +207,15 @@ export async function getRepoFileWithLazyContentForUser(input: {
     },
   });
 
-  await prisma.repoChunk.create({
-    data: {
+  await createRepoChunksWithEmbeddings(
+    buildSourceChunks({
       content,
       fileId: updatedFile.id,
       path: updatedFile.path,
       repoId: input.repoId,
       source: "lazy-github-source",
-      tokenEstimate: Math.ceil(content.length / 4),
-    },
-  });
+    }),
+  );
 
   return updatedFile;
 }
@@ -420,42 +435,37 @@ export async function persistRepoAnalysis(input: {
       .catch(() => null);
   }
 
-  for (const file of input.analysis.keyFiles.slice(0, 12)) {
-    await prisma.repoChunk.create({
-      data: {
-        repoId: input.repoId,
-        path: file.path,
-        content: file.purpose,
-        source: "report-key-file",
-        tokenEstimate: Math.ceil(file.purpose.length / 4),
-      },
-    });
-  }
+  const chunksToCreate: RepoChunkCreateInput[] = [
+    ...input.analysis.keyFiles.slice(0, 12).map((file) => ({
+      repoId: input.repoId,
+      path: file.path,
+      content: file.purpose,
+      source: "report-key-file",
+      tokenEstimate: Math.ceil(file.purpose.length / 4),
+    })),
+    ...input.analysis.wikiSections.slice(0, 10).map((section) => {
+      const content = `${section.title}\n\n${section.content}`;
 
-  for (const section of input.analysis.wikiSections.slice(0, 10)) {
-    await prisma.repoChunk.create({
-      data: {
+      return {
         repoId: input.repoId,
         path: `report/${slugify(section.title)}.md`,
-        content: `${section.title}\n\n${section.content}`,
+        content,
         source: "report-section",
-        tokenEstimate: Math.ceil(section.content.length / 4),
-      },
-    });
-  }
-
-  for (const file of sampledFiles.slice(0, 80)) {
-    await prisma.repoChunk.create({
-      data: {
+        tokenEstimate: Math.ceil(content.length / 4),
+      };
+    }),
+    ...sampledFiles.slice(0, 80).flatMap((file) =>
+      buildSourceChunks({
         repoId: input.repoId,
         fileId: createdFiles.get(file.path),
         path: file.path,
         content: file.content,
         source: "sampled-source",
-        tokenEstimate: Math.ceil(file.content.length / 4),
-      },
-    });
-  }
+      }),
+    ),
+  ];
+
+  await createRepoChunksWithEmbeddings(chunksToCreate);
 
   await prisma.repo.update({
     where: { id: input.repoId },
@@ -489,6 +499,92 @@ function slugify(value: string) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80);
+}
+
+function buildSourceChunks(input: {
+  content: string;
+  fileId?: string;
+  path: string;
+  repoId: string;
+  source: string;
+}): RepoChunkCreateInput[] {
+  const lines = input.content.split(/\r?\n/);
+  const chunks: RepoChunkCreateInput[] = [];
+  let startIndex = 0;
+
+  while (startIndex < lines.length) {
+    let endIndex = startIndex;
+    let content = "";
+
+    while (
+      endIndex < lines.length &&
+      endIndex - startIndex < SOURCE_CHUNK_MAX_LINES
+    ) {
+      const nextContent = [...lines.slice(startIndex, endIndex + 1)].join("\n");
+
+      if (nextContent.length > SOURCE_CHUNK_MAX_CHARS && content) break;
+
+      content = nextContent;
+      endIndex += 1;
+    }
+
+    const trimmedContent = content.trimEnd();
+
+    if (trimmedContent) {
+      chunks.push({
+        content: trimmedContent,
+        endLine: endIndex,
+        fileId: input.fileId,
+        path: input.path,
+        repoId: input.repoId,
+        source: input.source,
+        startLine: startIndex + 1,
+        tokenEstimate: Math.ceil(trimmedContent.length / 4),
+      });
+    }
+
+    if (endIndex >= lines.length) break;
+
+    startIndex = Math.max(
+      endIndex - SOURCE_CHUNK_OVERLAP_LINES,
+      startIndex + 1,
+    );
+  }
+
+  return chunks;
+}
+
+async function createRepoChunksWithEmbeddings(chunks: RepoChunkCreateInput[]) {
+  const createdChunks = [];
+
+  for (const chunk of chunks) {
+    const createdChunk = await prisma.repoChunk.create({
+      data: {
+        content: chunk.content,
+        endLine: chunk.endLine,
+        fileId: chunk.fileId,
+        path: chunk.path,
+        repoId: chunk.repoId,
+        source: chunk.source,
+        startLine: chunk.startLine,
+        tokenEstimate: chunk.tokenEstimate,
+      },
+      select: {
+        content: true,
+        endLine: true,
+        id: true,
+        path: true,
+        source: true,
+        startLine: true,
+      },
+    });
+
+    createdChunks.push(createdChunk);
+  }
+
+  await tryEmbedAndPersistRepoChunks(createdChunks);
+
+  return createdChunks;
 }
 
 function getFreshnessStatus(input: {

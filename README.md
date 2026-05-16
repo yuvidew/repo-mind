@@ -38,7 +38,7 @@ Deferred until after the MVP is validated:
 | API | Route handlers and server actions first | tRPC after core workflow stabilizes |
 | Repo ingestion | GitHub API tree/blob access | Inngest + Render/Fly worker + git clone |
 | Report model | DeepSeek/OpenAI-compatible client | Add fallback routing |
-| Chat/embeddings | Gemini + pgvector | Better reranking and larger context |
+| Chat/embeddings | OpenAI-compatible chat + LangChain embeddings + Neon pgvector | Better reranking and larger context |
 | Rate limits | DB-backed counters first | Upstash Redis |
 | Deployment | Vercel + Neon | Add worker service later |
 
@@ -59,11 +59,23 @@ DEEPSEEK_API_KEY=
 GEMINI_API_KEY=
 ```
 
+Required for semantic repo chat when RAG embeddings are enabled:
+
+```env
+EMBEDDING_API_KEY=
+EMBEDDING_MODEL=
+EMBEDDING_BASE_URL=
+```
+
+`EMBEDDING_BASE_URL` is optional when using the provider default. If it is not set, the app falls back to `OPENAI_BASE_URL` or `NVIDIA_BASE_URL`. The default NVIDIA embedding model returns 2048 dimensions, so `RepoChunk.embedding` is stored as `vector(2048)` in Neon pgvector.
+
 Required for Prisma migration workflows when using a direct Neon connection:
 
 ```env
 DIRECT_URL=
 ```
+
+Prisma migrations prefer `DIRECT_URL` when it is present, then fall back to `DATABASE_URL`.
 
 Optional or deferred:
 
@@ -98,6 +110,22 @@ Useful checks:
 npm run lint
 npm run build
 ```
+
+Backfill embeddings for existing analyzed chunks after enabling pgvector and embedding env vars:
+
+```bash
+npm run embeddings:backfill -- --repoId <repo-id> --limit 200
+```
+
+Omit `--repoId` to backfill the next batch of missing embeddings across repos.
+
+## RAG and pgvector
+
+Repo chat uses saved reports plus retrieved repo chunks. New analyses create line-window `RepoChunk` rows for sampled source files, generate embeddings through a LangChain-compatible NVIDIA/OpenAI embedding adapter when configured, and store vectors in Neon Postgres with pgvector.
+
+The default NVIDIA embedding model returns 2048 dimensions. pgvector exact similarity search works with `vector(2048)`, but HNSW indexes are limited to 2000 dimensions, so the first migration intentionally leaves the embedding column unindexed. For larger repos, use a <=2000-dimensional embedding model or add a separate indexed projection.
+
+If embeddings are not configured or a repo has not been backfilled yet, chat falls back to keyword-prioritized chunk retrieval so the feature remains usable.
 
 Dev troubleshooting:
 

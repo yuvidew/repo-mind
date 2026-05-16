@@ -53,7 +53,7 @@ function buildMessages(input: {
   return [
     {
       role: "system",
-      content: buildSystemPrompt(input.context, input.question),
+      content: buildSystemPrompt(input.context),
     },
     ...history,
     {
@@ -63,7 +63,7 @@ function buildMessages(input: {
   ];
 }
 
-function buildSystemPrompt(context: RepoChatContext, question: string) {
+function buildSystemPrompt(context: RepoChatContext) {
   const { report, repo } = context;
   const keyFiles = report?.keyFiles
     .slice(0, 16)
@@ -78,12 +78,20 @@ function buildSystemPrompt(context: RepoChatContext, question: string) {
     .slice(0, 30)
     .map((file) => `- ${file.path}: ${file.summary}`)
     .join("\n");
-  const prioritizedChunks = prioritizeChunks(context.chunks, question);
-  const chunks = prioritizedChunks
+  const chunks = context.chunks
     .slice(0, 36)
     .map((chunk, index) => {
       const maxLength = index < 12 ? 1400 : 900;
-      return `- ${chunk.path} (${chunk.source}): ${truncate(chunk.content, maxLength)}`;
+      const lineRange =
+        chunk.startLine && chunk.endLine
+          ? ` lines ${chunk.startLine}-${chunk.endLine}`
+          : "";
+      const score =
+        typeof chunk.similarity === "number"
+          ? ` similarity ${chunk.similarity.toFixed(3)}`
+          : " fallback";
+
+      return `- ${chunk.path}${lineRange} (${chunk.source},${score}): ${truncate(chunk.content, maxLength)}`;
     })
     .join("\n");
 
@@ -136,162 +144,4 @@ ${wikiSections || "No wiki sections saved."}`;
 function truncate(value: string, maxLength: number) {
   if (value.length <= maxLength) return value;
   return `${value.slice(0, maxLength)}...`;
-}
-
-function prioritizeChunks(chunks: RepoChatContext["chunks"], question: string) {
-  return [...chunks].sort((first, second) => {
-    return (
-      chunkScore(second.path, second.source, second.content, question) -
-      chunkScore(first.path, first.source, first.content, question)
-    );
-  });
-}
-
-function chunkScore(
-  path: string,
-  source: string,
-  content: string,
-  question: string,
-) {
-  const lower = path.toLowerCase();
-  const lowerContent = content.toLowerCase();
-  const questionTokens = extractQuestionTokens(question);
-  let score = 0;
-
-  if (source === "sampled-source") score += 40;
-  if (lower.endsWith("package.json")) score += 35;
-  if (lower.includes("schema.prisma")) score += 35;
-  if (lower.includes("prisma.config")) score += 30;
-  if (lower.includes("lib/db") || lower.includes("database")) score += 30;
-  if (lower.includes("db.")) score += 25;
-  if (lower.includes("api/") || lower.endsWith("route.ts")) score += 15;
-
-  for (const token of questionTokens) {
-    if (lower.includes(token)) score += 18;
-    if (lowerContent.includes(token)) score += 8;
-  }
-
-  if (
-    asksAboutDatabase(questionTokens) &&
-    isDatabasePath(lower, lowerContent)
-  ) {
-    score += 45;
-  }
-
-  if (asksAboutApi(questionTokens) && isApiPath(lower, lowerContent)) {
-    score += 35;
-  }
-
-  if (asksAboutAuth(questionTokens) && isAuthPath(lower, lowerContent)) {
-    score += 35;
-  }
-
-  if (asksAboutJobs(questionTokens) && isJobPath(lower, lowerContent)) {
-    score += 35;
-  }
-
-  return score;
-}
-
-function extractQuestionTokens(question: string) {
-  const stopWords = new Set([
-    "about",
-    "after",
-    "does",
-    "first",
-    "from",
-    "have",
-    "into",
-    "read",
-    "should",
-    "that",
-    "this",
-    "what",
-    "when",
-    "where",
-    "which",
-    "with",
-  ]);
-
-  return Array.from(
-    new Set(
-      question
-        .toLowerCase()
-        .split(/[^a-z0-9_/-]+/)
-        .map((token) => token.trim())
-        .filter((token) => token.length > 2 && !stopWords.has(token)),
-    ),
-  ).slice(0, 16);
-}
-
-function asksAboutDatabase(tokens: string[]) {
-  return tokens.some((token) =>
-    [
-      "database",
-      "db",
-      "postgres",
-      "prisma",
-      "drizzle",
-      "mongo",
-      "schema",
-    ].includes(token),
-  );
-}
-
-function asksAboutApi(tokens: string[]) {
-  return tokens.some((token) =>
-    ["api", "route", "endpoint", "server", "trpc", "handler"].includes(token),
-  );
-}
-
-function asksAboutAuth(tokens: string[]) {
-  return tokens.some((token) =>
-    ["auth", "login", "signin", "signup", "session", "user"].includes(token),
-  );
-}
-
-function asksAboutJobs(tokens: string[]) {
-  return tokens.some((token) =>
-    ["job", "jobs", "queue", "background", "worker", "inngest"].includes(token),
-  );
-}
-
-function isDatabasePath(path: string, content: string) {
-  return (
-    path.includes("schema.prisma") ||
-    path.includes("prisma.config") ||
-    path.includes("drizzle") ||
-    path.includes("lib/db") ||
-    path.includes("database") ||
-    content.includes("prismaclient") ||
-    content.includes("postgres") ||
-    content.includes("mongoose")
-  );
-}
-
-function isApiPath(path: string, content: string) {
-  return (
-    path.includes("api/") ||
-    path.endsWith("route.ts") ||
-    path.endsWith("route.js") ||
-    content.includes("export async function get") ||
-    content.includes("export async function post") ||
-    content.includes("createtrpc")
-  );
-}
-
-function isAuthPath(path: string, content: string) {
-  return (
-    path.includes("auth") ||
-    content.includes("better-auth") ||
-    content.includes("session")
-  );
-}
-
-function isJobPath(path: string, content: string) {
-  return (
-    path.includes("inngest") ||
-    path.includes("jobs/") ||
-    content.includes("createfunction")
-  );
 }

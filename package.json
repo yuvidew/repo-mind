@@ -12,11 +12,13 @@
     "reset:dev": "prisma migrate reset",
     "start": "next start",
     "lint": "biome check",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "embeddings:backfill": "tsx scripts/backfill-repo-embeddings.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
     "@hookform/resolvers": "^5.2.2",
+    "@langchain/openai": "^1.4.5",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@tanstack/react-query": "^5.100.8",

@@ -5,15 +5,15 @@ import type {
   File,
   Prisma,
   Repo,
-  RepoChunk,
 } from "@/generated/prisma/client";
 import type { RepositoryAnalysis } from "@/lib/analysis-types";
 import prisma from "@/lib/db";
+import { type RetrievedRepoChunk, retrieveRepoChunks } from "./repo-retrieval";
 
 export type RepoChatMessageRole = "user" | "assistant";
 
 export type RepoChatContext = {
-  chunks: Pick<RepoChunk, "content" | "path" | "source">[];
+  chunks: RetrievedRepoChunk[];
   files: Pick<File, "path" | "summary">[];
   history: Pick<ChatMessage, "content" | "createdAt" | "id" | "role">[];
   report: RepositoryAnalysis | null;
@@ -44,6 +44,7 @@ export async function listRepoChatMessages(input: {
 }
 
 export async function getRepoChatContext(input: {
+  question: string;
   repoId: string;
   userId: string;
 }): Promise<RepoChatContext | null> {
@@ -74,15 +75,10 @@ export async function getRepoChatContext(input: {
         summary: true,
       },
     }),
-    prisma.repoChunk.findMany({
-      where: { repoId: input.repoId },
-      orderBy: { createdAt: "asc" },
-      take: 80,
-      select: {
-        content: true,
-        path: true,
-        source: true,
-      },
+    retrieveRepoChunks({
+      question: input.question,
+      repoId: input.repoId,
+      userId: input.userId,
     }),
   ]);
 

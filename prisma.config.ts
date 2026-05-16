@@ -10,6 +10,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: normalizePostgresSslMode(process.env.DATABASE_URL),
+    url: normalizePostgresSslMode(
+      process.env.DIRECT_URL ?? process.env.DATABASE_URL,
+    ),
   },
 });

@@ -60,6 +60,7 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
 
   const { id } = await params;
   const context = await getRepoChatContext({
+    question: body.data.message,
     repoId: id,
     userId: auth.session.user.id,
   });
@@ -141,6 +142,14 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
           await createRepoChatMessage({
             content: assistantContent,
             metadataJson: {
+              citations: context.chunks.map((chunk) => ({
+                chunkId: chunk.id,
+                endLine: chunk.endLine,
+                path: chunk.path,
+                similarity: chunk.similarity,
+                source: chunk.source,
+                startLine: chunk.startLine,
+              })),
               model: process.env.CHAT_MODEL ?? "openai/gpt-oss-120b",
             },
             repoId: id,

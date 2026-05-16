@@ -108,6 +108,7 @@ model RepoChunk {
   content       String
   tokenEstimate Int      @default(0)
   source        String   @default("analysis")
+  embedding     Unsupported("vector(2048)")?
   createdAt     DateTime @default(now())
 
   @@index([repoId])
