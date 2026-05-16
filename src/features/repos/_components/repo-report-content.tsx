@@ -46,7 +46,7 @@ export const RepoReportContent = ({
 
       <section id="overview" className="space-y-3 scroll-mt-24">
         <SectionTitle id="overview" title="Overview" />
-        <p className="text-muted-foreground text-base leading-8">
+        <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
           {analysis.plainEnglish}
         </p>
       </section>
@@ -81,7 +81,7 @@ export const RepoReportContent = ({
 
       <section id="beginner-guide" className="space-y-3 scroll-mt-24">
         <SectionTitle id="beginner-guide" title="Beginner guide" />
-        <ol className="list-decimal space-y-2 pl-5 text-muted-foreground text-sm leading-7">
+        <ol className="list-decimal space-y-2 pl-5 text-muted-foreground text-sm leading-7 wrap-anywhere">
           {analysis.beginnerGuide.map((item) => (
             <li key={item}>{item}</li>
           ))}
@@ -102,7 +102,7 @@ export const RepoReportContent = ({
                 <FileCode2 className="size-4 text-primary" />
                 <span className="break-all">{file.path}</span>
               </div>
-              <p className="mt-1 text-muted-foreground text-sm leading-6">
+              <p className="mt-1 text-muted-foreground text-sm leading-6 wrap-anywhere">
                 {file.purpose}
               </p>
               {file.citation ? (
@@ -206,17 +206,21 @@ function TextSection({
   value: string;
 }) {
   return (
-    <section id={id} className="space-y-3 scroll-mt-24">
+    <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
       <SectionTitle id={id} title={title} />
-      <p className="text-muted-foreground text-base leading-8">{value}</p>
+      <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
+        {value}
+      </p>
     </section>
   );
 }
 
 function SectionTitle({ id, title }: { id: string; title: string }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h2 className="font-semibold text-2xl tracking-normal">{title}</h2>
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <h2 className="min-w-0 font-semibold text-2xl tracking-normal wrap-anywhere">
+        {title}
+      </h2>
       <SectionShareButton sectionId={id} title={title} />
     </div>
   );
@@ -238,7 +242,7 @@ function WikiSectionView({ section }: { section: WikiSection }) {
           <SectionShareButton sectionId={id} title={section.title} />
         </div>
         <AccordionContent className="pb-4">
-          <p className="text-muted-foreground text-base leading-8">
+          <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
             {section.content}
           </p>
           {section.citations && section.citations.length > 0 ? (
@@ -273,7 +277,7 @@ function ListCard({
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="text-muted-foreground text-sm leading-6">
+          <p className="text-muted-foreground text-sm leading-6 wrap-anywhere">
             Not enough sampled source context to identify this yet.
           </p>
         ) : null}
@@ -287,7 +291,7 @@ function ListCard({
                     : "mt-2 size-1.5 shrink-0 rounded-full bg-primary"
                 }
               />
-              <span>{item}</span>
+              <span className="min-w-0 wrap-anywhere">{item}</span>
             </li>
           ))}
         </ul>
