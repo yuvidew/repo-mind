@@ -524,8 +524,10 @@ function getGitHubHeaders() {
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  if (process.env.GITHUB_TOKEN) {
-    headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
+  const token = process.env.GITHUB_TOKEN?.trim();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
   }
 
   return headers;
@@ -535,21 +537,51 @@ async function getJson<T>(
   url: string,
   headers: Record<string, string>,
 ): Promise<T> {
-  const response = await fetch(url, {
+  const response = await fetchGitHub(url, headers);
+  const finalResponse = await retryWithoutGitHubAuthOnBadCredentials(
+    url,
+    headers,
+    response,
+  );
+
+  if (!finalResponse.ok) {
+    const message = await finalResponse.text();
+    throw new Error(
+      `GitHub request failed (${finalResponse.status}): ${message.slice(0, 220)}`,
+    );
+  }
+
+  return finalResponse.json() as Promise<T>;
+}
+
+function fetchGitHub(url: string, headers: Record<string, string>) {
+  return fetch(url, {
     headers,
     cache: GITHUB_CACHE_OPTION,
     ...(GITHUB_NEXT_OPTIONS ? { next: GITHUB_NEXT_OPTIONS } : {}),
     signal: AbortSignal.timeout(GITHUB_FETCH_TIMEOUT_MS),
   });
+}
 
-  if (!response.ok) {
-    const message = await response.text();
-    throw new Error(
-      `GitHub request failed (${response.status}): ${message.slice(0, 220)}`,
-    );
+async function retryWithoutGitHubAuthOnBadCredentials(
+  url: string,
+  headers: Record<string, string>,
+  response: Response,
+) {
+  if (!(headers.Authorization && response.status === 401)) {
+    return response;
   }
 
-  return response.json() as Promise<T>;
+  const message = await response.clone().text();
+
+  if (!message.toLowerCase().includes("bad credentials")) {
+    return response;
+  }
+
+  const anonymousHeaders = { ...headers };
+  delete anonymousHeaders.Authorization;
+
+  return fetchGitHub(url, anonymousHeaders);
 }
 
 function selectFiles(items: GitHubTreeItem[], sampleFiles: number) {
@@ -825,16 +857,16 @@ async function fetchRawFile(input: {
   file: GitHubTreeItem;
 }): Promise<SampledFile | null> {
   const rawUrl = `https://raw.githubusercontent.com/${input.owner}/${input.repo}/${encodePath(input.branch)}/${encodePath(input.file.path)}`;
-  const response = await fetch(rawUrl, {
-    headers: input.headers,
-    cache: GITHUB_CACHE_OPTION,
-    ...(GITHUB_NEXT_OPTIONS ? { next: GITHUB_NEXT_OPTIONS } : {}),
-    signal: AbortSignal.timeout(GITHUB_FETCH_TIMEOUT_MS),
-  });
+  const response = await fetchGitHub(rawUrl, input.headers);
+  const finalResponse = await retryWithoutGitHubAuthOnBadCredentials(
+    rawUrl,
+    input.headers,
+    response,
+  );
 
-  if (!response.ok) return null;
+  if (!finalResponse.ok) return null;
 
-  const content = (await response.text()).slice(0, input.limits.fileChars);
+  const content = (await finalResponse.text()).slice(0, input.limits.fileChars);
   return {
     path: input.file.path,
     content,
