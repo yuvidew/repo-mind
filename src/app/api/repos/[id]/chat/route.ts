@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { requireApiAuth } from "@/lib/auth-utils";
-import { createRepoChatStream } from "@/lib/repos/repo-chat-ai";
+import {
+  createRepoChatStream,
+  getRepoChatModel,
+} from "@/lib/repos/repo-chat-ai";
 import {
   createRepoChatMessage,
   getRepoChatContext,
@@ -84,7 +87,11 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
   });
 
   const abortController = new AbortController();
-  const timeout = setTimeout(() => abortController.abort(), CHAT_TIMEOUT_MS);
+  let didTimeout = false;
+  const timeout = setTimeout(() => {
+    didTimeout = true;
+    abortController.abort();
+  }, CHAT_TIMEOUT_MS);
   let completion: Awaited<ReturnType<typeof createRepoChatStream>>;
 
   try {
@@ -95,10 +102,14 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
     });
   } catch (error) {
     clearTimeout(timeout);
+    console.error("Unable to start repo chat stream", {
+      error: error instanceof Error ? error.message : "Unknown chat error",
+      model: getRepoChatModel(),
+      timedOut: didTimeout,
+    });
     return Response.json(
       {
-        error:
-          error instanceof Error ? error.message : "Unable to start repo chat.",
+        error: formatChatStreamError(error, didTimeout),
       },
       { status: 503 },
     );
@@ -124,7 +135,10 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
           controller.enqueue(encoder.encode(content));
         }
       } catch (error) {
-        const errorMessage = formatChatStreamError(error);
+        const errorMessage = formatChatStreamError(
+          error,
+          didTimeout || abortController.signal.aborted,
+        );
         const fallback = assistantContent.trim()
           ? `\n\n${errorMessage}`
           : errorMessage;
@@ -150,7 +164,7 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
                 source: chunk.source,
                 startLine: chunk.startLine,
               })),
-              model: process.env.CHAT_MODEL ?? "openai/gpt-oss-120b",
+              model: getRepoChatModel(),
             },
             repoId: id,
             role: "assistant",
@@ -172,9 +186,9 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
   });
 }
 
-function formatChatStreamError(error: unknown) {
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return "The chat model took too long to respond. Try again, or set CHAT_MODEL=openai/gpt-oss-20b for faster local testing.";
+function formatChatStreamError(error: unknown, timedOut = false) {
+  if (timedOut || isAbortLikeError(error)) {
+    return "The chat model did not start responding before the server timeout. Try again in a moment, or configure CHAT_MODEL to a faster NVIDIA-hosted model.";
   }
 
   if (error instanceof Error) {
@@ -182,4 +196,19 @@ function formatChatStreamError(error: unknown) {
   }
 
   return "Repo chat stopped before finishing. Try again in a moment.";
+}
+
+function isAbortLikeError(error: unknown) {
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return true;
+  }
+
+  if (!(error instanceof Error)) return false;
+
+  return (
+    error.name === "AbortError" ||
+    error.constructor.name === "APIUserAbortError" ||
+    error.constructor.name === "APIConnectionTimeoutError" ||
+    error.message === "Request was aborted."
+  );
 }

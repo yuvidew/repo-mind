@@ -4,12 +4,14 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import type { RepoChatContext } from "./repo-chat-service";
 
+export const DEFAULT_REPO_CHAT_MODEL = "openai/gpt-oss-20b";
+
 export function createRepoChatStream(input: {
   context: RepoChatContext;
   question: string;
   signal?: AbortSignal;
 }) {
-  const apiKey = process.env.NVIDIA_API_KEY;
+  const apiKey = process.env.NVIDIA_API_KEY?.trim();
 
   if (!apiKey) {
     throw new Error(
@@ -20,12 +22,13 @@ export function createRepoChatStream(input: {
   const openai = new OpenAI({
     apiKey,
     baseURL:
-      process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
+      process.env.NVIDIA_BASE_URL?.trim() ??
+      "https://integrate.api.nvidia.com/v1",
   });
 
   return openai.chat.completions.create(
     {
-      model: process.env.CHAT_MODEL ?? "openai/gpt-oss-120b",
+      model: getRepoChatModel(),
       messages: buildMessages(input),
       temperature: 0.4,
       top_p: 0.9,
@@ -34,6 +37,10 @@ export function createRepoChatStream(input: {
     },
     { signal: input.signal },
   );
+}
+
+export function getRepoChatModel() {
+  return process.env.CHAT_MODEL?.trim() || DEFAULT_REPO_CHAT_MODEL;
 }
 
 function buildMessages(input: {
