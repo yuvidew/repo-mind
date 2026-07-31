@@ -113,7 +113,13 @@ export const RepoReportContent = ({
         </div>
       </section>
 
-      <RepoFilesSection repoId={repoId} />
+      <RepoFilesSection
+        analyzedRef={
+          analysis.provenance.analyzedCommitSha ?? analysis.repo.defaultBranch
+        }
+        repoId={repoId}
+        repoUrl={analysis.repo.url}
+      />
 
       <section id="risks" className="grid gap-4 scroll-mt-24 md:grid-cols-2">
         <ListCard title="Tech stack" items={analysis.techStack} />
