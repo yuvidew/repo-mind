@@ -12,14 +12,6 @@ type HeaderProps = {
   userName: string | null;
 };
 
-const navItems = [
-  { href: "#preview", label: "Preview" },
-  { href: "#flow", label: "Flow" },
-  { href: "#features", label: "Features" },
-  { href: "/discover", label: "Discover" },
-  { href: "/docs", label: "Docs" },
-];
-
 export const Header = ({
   isSignedIn,
   userEmail,
@@ -29,7 +21,7 @@ export const Header = ({
   const displayName = userName || userEmail;
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur supports-backdrop-filter:bg-background/70">
+    <header className="sticky top-0 z-50 border-b bg-background/90 backdrop-blur supports-backdrop-filter:bg-background/75">
       <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
@@ -40,18 +32,6 @@ export const Header = ({
           </span>
           <span className="truncate">RepoMind</span>
         </Link>
-
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
-          {navItems.map((item) => (
-            <Button key={item.href} variant="ghost" size="sm" asChild>
-              {item.href.startsWith("/") ? (
-                <Link href={item.href}>{item.label}</Link>
-              ) : (
-                <a href={item.href}>{item.label}</a>
-              )}
-            </Button>
-          ))}
-        </nav>
 
         <div className="flex shrink-0 items-center gap-2">
           {isSignedIn ? (

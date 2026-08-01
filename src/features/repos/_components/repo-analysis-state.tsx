@@ -9,10 +9,7 @@ import {
   Database,
   ExternalLink,
   FileSearch,
-  FileText,
   type LucideIcon,
-  MessageSquareText,
-  Network,
   RefreshCw,
   SearchX,
   Sparkles,
@@ -25,7 +22,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { DemoRepo } from "./repo-demo-data";
 
@@ -228,8 +224,6 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
                   </AlertDescription>
                 </Alert>
               ) : null}
-
-              <WorkspacePreview currentStage={currentStage.value} />
             </div>
           </section>
         ) : (
@@ -359,61 +353,6 @@ function AnalysisStepper({ currentStage }: { currentStage: AnalysisStage }) {
   );
 }
 
-function WorkspacePreview({ currentStage }: { currentStage: AnalysisStage }) {
-  return (
-    <div className="rounded-lg border bg-card p-5 shadow-sm">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="font-medium">Workspace preview</p>
-          <p className="text-muted-foreground text-sm">
-            Sections appear here as the analysis completes.
-          </p>
-        </div>
-        <Badge variant="outline">Building</Badge>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        {previewCards.map((card) => {
-          const Icon = card.icon;
-          const isActive = card.stage === currentStage;
-
-          return (
-            <div
-              className={cn(
-                "min-h-44 rounded-lg border bg-background p-4",
-                isActive && "border-primary/40 bg-primary/5",
-              )}
-              key={card.title}
-            >
-              <div className="mb-4 flex items-center gap-3">
-                <span
-                  className={cn(
-                    "flex size-9 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground",
-                    isActive && "bg-primary/10 text-primary",
-                  )}
-                >
-                  <Icon className="size-4" />
-                </span>
-                <div>
-                  <p className="font-medium text-sm">{card.title}</p>
-                  <p className="text-muted-foreground text-xs">
-                    {isActive ? "In progress" : card.status}
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-full" />
-                <Skeleton className="h-3 w-4/5" />
-                <Skeleton className="h-3 w-2/3" />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 function FailedState({
   errorMsg,
   isRetrying,
@@ -498,38 +437,6 @@ const analysisSteps = [
   label: string;
   minProgress: number;
   value: AnalysisStage;
-}>;
-
-const previewCards = [
-  {
-    icon: FileText,
-    stage: "reporting",
-    status: "Waiting",
-    title: "Report",
-  },
-  {
-    icon: Network,
-    stage: "reporting",
-    status: "Waiting",
-    title: "Diagram",
-  },
-  {
-    icon: FileSearch,
-    stage: "parsing",
-    status: "Waiting",
-    title: "Files",
-  },
-  {
-    icon: MessageSquareText,
-    stage: "ready",
-    status: "Locked",
-    title: "Chat",
-  },
-] satisfies Array<{
-  icon: LucideIcon;
-  stage: AnalysisStage;
-  status: string;
-  title: string;
 }>;
 
 function getCurrentStage(status: ApiRepoStatus, progress: number) {
