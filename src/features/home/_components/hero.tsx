@@ -1,31 +1,15 @@
 import {
   Bot,
-  BrainCircuit,
   FileCode2,
   FileSearch,
   GitBranch,
-  History,
-  type LucideIcon,
   MessageSquareText,
   Network,
-  Plus,
-  Search,
-  Settings,
   Sparkles,
+  type LucideIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import { RepoUrlForm } from "./repo-url-form";
-
-const railItems = [
-  { icon: Plus, label: "New analysis" },
-  { icon: Search, label: "Search repos" },
-  { icon: GitBranch, label: "Repositories" },
-  { icon: History, label: "History" },
-] satisfies Array<{
-  icon: LucideIcon;
-  label: string;
-}>;
 
 const starterCards = [
   {
@@ -60,44 +44,7 @@ export const Hero = () => {
   return (
     <section className="border-b bg-background">
       <div className="mx-auto flex min-h-[calc(100svh-3.5rem)] w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid w-full overflow-hidden rounded-lg border bg-card shadow-sm lg:grid-cols-[76px_minmax(0,1fr)]">
-          <aside className="hidden border-r bg-muted/20 p-3 lg:flex lg:flex-col lg:items-center lg:justify-between">
-            <div className="flex flex-col items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <BrainCircuit className="size-5" />
-              </span>
-              <span className="h-px w-10 bg-border" />
-              <div className="grid gap-2">
-                {railItems.map((item, index) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <span
-                      className={cn(
-                        "flex size-10 items-center justify-center rounded-lg border text-muted-foreground",
-                        index === 0
-                          ? "bg-background text-foreground shadow-sm"
-                          : "bg-transparent",
-                      )}
-                      key={item.label}
-                      title={item.label}
-                    >
-                      <Icon className="size-4" />
-                      <span className="sr-only">{item.label}</span>
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-            <span
-              className="flex size-10 items-center justify-center rounded-lg border text-muted-foreground"
-              title="Settings"
-            >
-              <Settings className="size-4" />
-              <span className="sr-only">Settings</span>
-            </span>
-          </aside>
-
+        <div className="w-full overflow-hidden rounded-lg border bg-card shadow-sm">
           <div className="relative min-w-0 overflow-hidden bg-background">
             <div
               aria-hidden="true"
