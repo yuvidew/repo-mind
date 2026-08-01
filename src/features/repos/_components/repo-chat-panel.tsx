@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { SourceCitation } from "@/lib/analysis-types";
 import { cn } from "@/lib/utils";
+import { RepoCitationLink } from "./repo-citation-link";
 import type { DemoRepo } from "./repo-demo-data";
 
 type RepoChatPanelProps = {
@@ -17,6 +19,7 @@ type ChatMessage = {
   content: string;
   createdAt?: string;
   id: string;
+  metadataJson?: unknown;
   role: "assistant" | "user";
 };
 
@@ -50,15 +53,10 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
       setError(null);
 
       try {
-        const response = await fetch(`/api/repos/${repo.id}/chat`);
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(data.error ?? "Unable to load repo chat.");
-        }
+        const loadedMessages = await fetchRepoChatMessages(repo.id);
 
         if (isMounted) {
-          setMessages(data.messages ?? []);
+          setMessages(loadedMessages);
         }
       } catch (loadError) {
         if (isMounted) {
@@ -166,6 +164,12 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
           ),
         );
       }
+
+      try {
+        setMessages(await fetchRepoChatMessages(repo.id));
+      } catch {
+        // The streamed answer is already visible; persisted citations can load on refresh.
+      }
     } catch (sendError) {
       if (abortController.signal.aborted) {
         setMessages((currentMessages) =>
@@ -239,7 +243,14 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
                       )}
                     >
                       {message.content ? (
-                        <ChatMessageContent content={message.content} />
+                        <>
+                          <ChatMessageContent content={message.content} />
+                          {message.role === "assistant" ? (
+                            <ChatMessageCitations
+                              metadataJson={message.metadataJson}
+                            />
+                          ) : null}
+                        </>
                       ) : (
                         <span className="inline-flex items-center gap-2 text-muted-foreground">
                           <Loader2 className="size-3.5 animate-spin" />
@@ -347,6 +358,17 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
   );
 };
 
+async function fetchRepoChatMessages(repoId: string) {
+  const response = await fetch(`/api/repos/${repoId}/chat`);
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  const data = (await response.json()) as { messages?: ChatMessage[] };
+  return data.messages ?? [];
+}
+
 async function readErrorMessage(response: Response) {
   const fallback = "Unable to send this message.";
 
@@ -385,6 +407,23 @@ function stripThinkingNotice(content: string) {
   return content.replace(
     /^Thinking through the saved repository analysis\.\.\.\s*/,
     "",
+  );
+}
+
+function ChatMessageCitations({ metadataJson }: { metadataJson?: unknown }) {
+  const citations = normalizeChatCitations(metadataJson);
+
+  if (citations.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-2">
+      {citations.map((citation) => (
+        <RepoCitationLink
+          citation={citation}
+          key={`${citation.path}-${citation.startLine ?? ""}-${citation.endLine ?? ""}`}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -537,4 +576,74 @@ function hashString(value: string) {
   }
 
   return hash.toString(36);
+}
+
+function normalizeChatCitations(metadataJson: unknown): SourceCitation[] {
+  if (!metadataJson || typeof metadataJson !== "object") return [];
+  if (!("citations" in metadataJson)) return [];
+
+  const citations = (metadataJson as { citations?: unknown }).citations;
+
+  if (!Array.isArray(citations)) return [];
+
+  const seen = new Set<string>();
+  const normalized: SourceCitation[] = [];
+
+  for (const citation of citations) {
+    const normalizedCitation = normalizeChatCitation(citation);
+
+    if (!normalizedCitation) continue;
+
+    const key = [
+      normalizedCitation.path,
+      normalizedCitation.startLine ?? "",
+      normalizedCitation.endLine ?? "",
+    ].join(":");
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    normalized.push(normalizedCitation);
+  }
+
+  return normalized.slice(0, 8);
+}
+
+function normalizeChatCitation(value: unknown): SourceCitation | null {
+  if (!value || typeof value !== "object") return null;
+
+  const citation = value as {
+    endLine?: unknown;
+    path?: unknown;
+    source?: unknown;
+    startLine?: unknown;
+  };
+
+  if (typeof citation.path !== "string" || !citation.path.trim()) {
+    return null;
+  }
+
+  return {
+    endLine: normalizeLineNumber(citation.endLine),
+    path: citation.path,
+    source: normalizeCitationSource(citation.source),
+    startLine: normalizeLineNumber(citation.startLine),
+  };
+}
+
+function normalizeLineNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(1, Math.floor(value))
+    : undefined;
+}
+
+function normalizeCitationSource(value: unknown): SourceCitation["source"] {
+  if (value === "sampled-source") return "sampled-source";
+
+  if (typeof value === "string") {
+    if (value.includes("github")) return "github";
+    if (value.includes("report")) return "report";
+  }
+
+  return "manual";
 }

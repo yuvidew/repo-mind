@@ -38,6 +38,7 @@ export async function listRepoChatMessages(input: {
       content: true,
       createdAt: true,
       id: true,
+      metadataJson: true,
       role: true,
     },
   });
@@ -110,6 +111,7 @@ export async function createRepoChatMessage(input: {
       content: true,
       createdAt: true,
       id: true,
+      metadataJson: true,
       role: true,
     },
   });
