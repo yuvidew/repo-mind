@@ -32,6 +32,7 @@ export const RepoFreshnessButton = ({ repoId }: RepoFreshnessButtonProps) => {
     <Button
       disabled={isChecking}
       onClick={checkFreshness}
+      size="sm"
       type="button"
       variant="outline"
     >

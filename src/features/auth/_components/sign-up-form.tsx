@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, GalleryVerticalEnd } from "lucide-react";
+import { BrainCircuit, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -129,18 +129,18 @@ export const SignupForm = ({
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             <div className="flex flex-col items-center gap-2 text-center">
-              <a
-                href="/"
-                className="flex flex-col items-center gap-2 font-medium"
-              >
-                <div className="flex size-8 items-center justify-center rounded-md">
-                  <GalleryVerticalEnd className="size-6" />
+              <a href="/" className="flex flex-col items-center gap-2">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <BrainCircuit className="size-5" />
                 </div>
-                <span className="sr-only">Acme Inc.</span>
+                <span className="sr-only">RepoMind</span>
               </a>
-              <h1 className="text-xl font-bold">Welcome to Acme Inc.</h1>
+              <h1 className="font-semibold text-2xl tracking-normal">
+                Create your RepoMind workspace
+              </h1>
               <FieldDescription>
-                Already have an account? <a href="/sign-in">Sign in</a>
+                Analyze repos, inspect citations, and keep context saved.{" "}
+                <a href="/sign-in">Sign in instead</a>
               </FieldDescription>
             </div>
             <FormField
@@ -269,7 +269,7 @@ export const SignupForm = ({
                     fill="currentColor"
                   />
                 </svg>
-                Continue with Github
+                Continue with GitHub
               </Button>
             </Field>
           </FieldGroup>

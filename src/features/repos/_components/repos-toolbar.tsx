@@ -29,27 +29,30 @@ export const ReposToolbar = ({
   onStatusFilterChange,
 }: ReposToolbarProps) => {
   return (
-    <Card>
+    <Card className="border-primary/10 bg-background/95 shadow-sm">
       <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="relative min-w-0 flex-1">
           <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             aria-label="Search repositories"
-            className="h-10 pl-9"
-            placeholder="Search repositories..."
+            className="h-11 bg-background pl-9"
+            placeholder="Search by owner, repo, language, or description"
             value={searchQuery}
             onChange={(event) => onSearchChange(event.target.value)}
           />
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="grid grid-cols-2 rounded-lg border bg-muted/30 p-1 sm:flex">
+          <fieldset
+            aria-label="Repository status filter"
+            className="grid min-w-0 grid-cols-2 rounded-lg border bg-muted/30 p-1 sm:flex"
+          >
             {filters.map((filter) => (
               <button
                 key={filter.value}
                 type="button"
                 className={cn(
-                  "h-8 rounded-md px-3 font-medium text-sm transition-colors",
+                  "h-8 rounded-md px-3 font-medium text-sm transition-colors whitespace-nowrap",
                   statusFilter === filter.value
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",
@@ -60,7 +63,7 @@ export const ReposToolbar = ({
                 {filter.label}
               </button>
             ))}
-          </div>
+          </fieldset>
           <div className="text-muted-foreground text-sm whitespace-nowrap">
             {visibleCount} of {submittedCount} submitted repos
           </div>

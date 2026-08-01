@@ -1,11 +1,7 @@
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
-import { AnalysisPreview } from "./analysis-preview";
-import { FeaturesSection } from "./features-section";
-import { Footer } from "./footer";
 import { Header } from "./header";
 import { Hero } from "./hero";
-import { HowItWorks } from "./how-it-works";
 
 export const HomeView = async () => {
   const session = await auth.api.getSession({
@@ -21,10 +17,6 @@ export const HomeView = async () => {
         userName={session?.user.name ?? null}
       />
       <Hero />
-      <AnalysisPreview />
-      <HowItWorks />
-      <FeaturesSection />
-      <Footer />
     </main>
   );
 };

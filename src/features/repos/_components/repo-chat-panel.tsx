@@ -12,6 +12,7 @@ import { RepoCitationLink } from "./repo-citation-link";
 import type { DemoRepo } from "./repo-demo-data";
 
 type RepoChatPanelProps = {
+  layout?: "side" | "tab";
   repo: DemoRepo;
 };
 
@@ -29,7 +30,10 @@ const examplePrompts = [
   "Explain the architecture simply.",
 ];
 
-export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
+export const RepoChatPanel = ({
+  layout = "side",
+  repo,
+}: RepoChatPanelProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
@@ -208,17 +212,31 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
   }
 
   return (
-    <aside className="lg:sticky lg:top-6">
-      <Card className="h-[min(640px,calc(100vh-3rem))] min-h-110 overflow-hidden p-0">
-        <div className="flex h-full min-h-0 flex-col p-4">
-          <div className="border-b pb-3">
-            <h2 className="font-semibold">Repo chat</h2>
-            <p className="text-muted-foreground text-sm">
-              Ask about {repo.owner}/{repo.name}
-            </p>
+    <aside className={cn(layout === "side" && "lg:sticky lg:top-6")}>
+      <Card
+        className={cn(
+          "overflow-hidden border-primary/10 bg-background p-0 shadow-sm",
+          layout === "side"
+            ? "h-[min(680px,calc(100vh-3rem))] min-h-110"
+            : "h-[720px]",
+        )}
+      >
+        <div className="flex h-full min-h-0 flex-col">
+          <div className="border-b bg-muted/20 p-4">
+            <div className="flex items-start gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Bot className="size-5" />
+              </span>
+              <div className="min-w-0">
+                <h2 className="font-semibold">Repo chat</h2>
+                <p className="truncate text-muted-foreground text-sm">
+                  Ask about {repo.owner}/{repo.name}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <ScrollArea className="my-3 min-h-0 flex-1 overflow-hidden pr-3 **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45 **:data-[slot=scroll-area-viewport]:pb-4 **:data-[slot=scroll-area-viewport]:pr-2">
+          <ScrollArea className="min-h-0 flex-1 overflow-hidden px-4 py-3 **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45 **:data-[slot=scroll-area-viewport]:pb-4 **:data-[slot=scroll-area-viewport]:pr-2">
             {isLoadingInitial ? (
               <div className="flex h-full min-h-64 flex-col items-center justify-center gap-3 text-muted-foreground text-sm">
                 <Loader2 className="size-5 animate-spin" />
@@ -229,17 +247,22 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
                 {messages.map((message) => (
                   <div
                     className={cn(
-                      "flex",
+                      "flex gap-2",
                       message.role === "user" ? "justify-end" : "justify-start",
                     )}
                     key={message.id}
                   >
+                    {message.role === "assistant" ? (
+                      <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Bot className="size-4" />
+                      </span>
+                    ) : null}
                     <div
                       className={cn(
-                        "min-w-0 overflow-hidden rounded-lg px-3 py-2 text-sm leading-6 wrap-anywhere",
+                        "min-w-0 overflow-hidden rounded-lg px-3 py-2 text-sm leading-6 shadow-sm wrap-anywhere",
                         message.role === "user"
                           ? "max-w-[86%] bg-primary text-primary-foreground"
-                          : "max-w-full border bg-muted/40 text-foreground",
+                          : "max-w-[calc(100%-2.25rem)] border bg-background text-foreground",
                       )}
                     >
                       {message.content ? (
@@ -292,7 +315,7 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
           </ScrollArea>
 
           <form
-            className="shrink-0 space-y-2 border-t bg-card pt-3"
+            className="shrink-0 space-y-2 border-t bg-muted/20 p-4"
             onSubmit={(event) => {
               event.preventDefault();
               sendMessage(input);
@@ -318,6 +341,7 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
             <div className="flex gap-2">
               <Input
                 disabled={!isReady || isStreaming}
+                className="bg-background"
                 onChange={(event) => setInput(event.target.value)}
                 placeholder={
                   isReady
@@ -416,13 +440,18 @@ function ChatMessageCitations({ metadataJson }: { metadataJson?: unknown }) {
   if (citations.length === 0) return null;
 
   return (
-    <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-2">
-      {citations.map((citation) => (
-        <RepoCitationLink
-          citation={citation}
-          key={`${citation.path}-${citation.startLine ?? ""}-${citation.endLine ?? ""}`}
-        />
-      ))}
+    <div className="mt-3 space-y-2 border-t pt-2">
+      <p className="font-medium text-muted-foreground text-[11px] uppercase tracking-normal">
+        Sources
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {citations.map((citation) => (
+          <RepoCitationLink
+            citation={citation}
+            key={`${citation.path}-${citation.startLine ?? ""}-${citation.endLine ?? ""}`}
+          />
+        ))}
+      </div>
     </div>
   );
 }

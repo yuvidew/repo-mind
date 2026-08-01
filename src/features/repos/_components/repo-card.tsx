@@ -57,9 +57,17 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
   const isAnalyzing = repo.status === "ANALYZING";
 
   return (
-    <Card className="min-h-77.5 justify-between">
+    <Card className="min-h-77.5 justify-between border-primary/10 bg-background shadow-sm transition-[border-color,box-shadow] hover:border-primary/25 hover:shadow-md">
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              "flex size-10 shrink-0 items-center justify-center rounded-lg border",
+              status.className,
+            )}
+          >
+            <StatusIcon className="size-4" />
+          </span>
           <div className="min-w-0 space-y-2">
             <CardTitle className="truncate text-lg">
               {repo.owner}/{repo.name}
@@ -69,7 +77,6 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
                 variant="outline"
                 className={cn("gap-1", status.className)}
               >
-                <StatusIcon />
                 {status.label}
               </Badge>
               <Badge variant="secondary" className="gap-1">
@@ -86,7 +93,7 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
       </CardHeader>
 
       <CardContent className="space-y-4">
-        <p className="line-clamp-3 text-muted-foreground text-sm leading-6">
+        <p className="line-clamp-3 min-h-18 text-muted-foreground text-sm leading-6">
           {repo.description}
         </p>
 
@@ -123,12 +130,23 @@ export const RepoCard = ({ repo }: RepoCardProps) => {
             <Progress value={repo.progress ?? 0} />
           </div>
         ) : null}
+        {isFailed && repo.errorMsg ? (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-sm">
+            {repo.errorMsg}
+          </p>
+        ) : null}
       </CardContent>
 
-      <CardFooter className="gap-2">
-        <Button size="sm" asChild disabled={isAnalyzing}>
-          <Link href={`/repos/${repo.id}`}>Open report</Link>
-        </Button>
+      <CardFooter className="flex-wrap gap-2 bg-muted/30">
+        {isAnalyzing ? (
+          <Button size="sm" disabled>
+            Open workspace
+          </Button>
+        ) : (
+          <Button size="sm" asChild>
+            <Link href={`/repos/${repo.id}`}>Open workspace</Link>
+          </Button>
+        )}
         <Button size="sm" variant="outline" asChild>
           <a href={repo.url} target="_blank" rel="noreferrer">
             <ExternalLink />
@@ -162,7 +180,7 @@ function MetaItem({
   value: string;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border bg-background p-3">
+    <div className="min-w-0 rounded-lg border bg-muted/20 p-3">
       <div className="mb-1 flex items-center gap-1.5 text-muted-foreground text-xs">
         <Icon className="size-3.5" />
         {label}

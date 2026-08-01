@@ -1,4 +1,15 @@
-import { FileCode2 } from "lucide-react";
+"use client";
+
+import {
+  BookOpenText,
+  Bot,
+  FileCode2,
+  GitBranch,
+  MessageSquareText,
+  Network,
+  ShieldAlert,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import {
   Accordion,
   AccordionContent,
@@ -19,8 +30,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { RepositoryAnalysis, WikiSection } from "@/lib/analysis-types";
+import { RepoChatPanel } from "./repo-chat-panel";
 import { RepoCitationLink } from "./repo-citation-link";
+import type { DemoRepo } from "./repo-demo-data";
 import { RepoDiagram } from "./repo-diagram";
 import { RepoFilesSection } from "./repo-files-section";
 import { slugify } from "./repo-result-utils";
@@ -28,113 +42,249 @@ import { SectionShareButton } from "./section-share-button";
 
 type RepoReportContentProps = {
   analysis: RepositoryAnalysis;
+  repo: DemoRepo;
   repoId: string;
+};
+
+type FileOpenRequest = {
+  endLine?: number;
+  id: string;
+  path: string;
+  startLine?: number;
 };
 
 export const RepoReportContent = ({
   analysis,
+  repo,
   repoId,
 }: RepoReportContentProps) => {
+  const [activeTab, setActiveTab] = useState("overview");
+  const [fileOpenRequest, setFileOpenRequest] =
+    useState<FileOpenRequest | null>(null);
   const defaultWikiSections = analysis.wikiSections
     .slice(0, 2)
     .map((section) => slugify(section.title));
+  const tabs = [
+    { icon: BookOpenText, label: "Overview", value: "overview" },
+    { icon: Network, label: "Diagram", value: "diagram" },
+    { icon: GitBranch, label: "Wiki", value: "wiki" },
+    { icon: FileCode2, label: "Files", value: "files" },
+    { icon: Bot, label: "Chat", value: "chat" },
+    { icon: ShieldAlert, label: "Risks", value: "risks" },
+    { icon: MessageSquareText, label: "Debug", value: "debug" },
+  ];
+
+  useEffect(() => {
+    const openFilesTab = (event: Event) => {
+      const detail = (event as CustomEvent).detail as {
+        endLine?: number;
+        path?: string;
+        startLine?: number;
+      };
+
+      if (detail.path) {
+        setFileOpenRequest({
+          endLine: detail.endLine,
+          id: crypto.randomUUID(),
+          path: detail.path,
+          startLine: detail.startLine,
+        });
+      }
+
+      setActiveTab("files");
+    };
+
+    window.addEventListener("repomind:open-file", openFilesTab);
+
+    return () => {
+      window.removeEventListener("repomind:open-file", openFilesTab);
+    };
+  }, []);
 
   return (
-    <article className="min-w-0 space-y-8 pb-12">
-      <ReportNotice analysis={analysis} />
-      <SourceCoverage analysis={analysis} />
+    <article className="min-w-0 pb-12">
+      <Tabs className="gap-5" onValueChange={setActiveTab} value={activeTab}>
+        <div className="sticky top-3 z-20 rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
+          <TabsList
+            className="flex h-auto w-full flex-wrap justify-start rounded-md bg-transparent p-0"
+            variant="line"
+          >
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
 
-      <section id="overview" className="space-y-3 scroll-mt-24">
-        <SectionTitle id="overview" title="Overview" />
-        <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
-          {analysis.plainEnglish}
-        </p>
-      </section>
-
-      <section id="diagram" className="space-y-3 scroll-mt-24">
-        <div className="space-y-1">
-          <SectionTitle id="diagram" title="Diagram" />
-          <p className="text-muted-foreground text-sm leading-6">
-            A simplified map of the important code layers and how work moves
-            through the repository.
-          </p>
+              return (
+                <TabsTrigger
+                  className="h-9 flex-none px-3"
+                  key={tab.value}
+                  value={tab.value}
+                >
+                  <Icon className="size-4" />
+                  {tab.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
         </div>
-        <RepoDiagram analysis={analysis} />
-      </section>
 
-      <TextSection
-        id="architecture"
-        title="Architecture"
-        value={analysis.architecture}
-      />
-      <TextSection id="data-flow" title="Data flow" value={analysis.dataFlow} />
+        <TabsContent className="space-y-6" value="overview">
+          <ReportNotice analysis={analysis} />
+          <SourceCoverage analysis={analysis} />
 
-      <Accordion
-        className="space-y-4"
-        defaultValue={defaultWikiSections}
-        type="multiple"
-      >
-        {analysis.wikiSections.map((section) => (
-          <WikiSectionView key={section.title} section={section} />
-        ))}
-      </Accordion>
+          <section
+            id="overview"
+            className="space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+          >
+            <SectionTitle id="overview" title="Overview" />
+            <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
+              {analysis.plainEnglish}
+            </p>
+          </section>
 
-      <section id="beginner-guide" className="space-y-3 scroll-mt-24">
-        <SectionTitle id="beginner-guide" title="Beginner guide" />
-        <ol className="list-decimal space-y-2 pl-5 text-muted-foreground text-sm leading-7 wrap-anywhere">
-          {analysis.beginnerGuide.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ol>
-      </section>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <TextSection
+              id="architecture"
+              title="Architecture"
+              value={analysis.architecture}
+            />
+            <TextSection
+              id="data-flow"
+              title="Data flow"
+              value={analysis.dataFlow}
+            />
+          </div>
 
-      <section id="key-files" className="space-y-4 scroll-mt-24">
-        <div className="space-y-1">
-          <SectionTitle id="key-files" title="Key files" />
-          <p className="text-muted-foreground text-sm leading-6">
-            Start with these files to understand how the codebase fits together.
-          </p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          {analysis.keyFiles.map((file) => (
-            <div key={file.path} className="rounded-lg border bg-card p-3">
-              <div className="flex items-center gap-2 font-medium text-sm">
-                <FileCode2 className="size-4 text-primary" />
-                <span className="break-all">{file.path}</span>
-              </div>
-              <p className="mt-1 text-muted-foreground text-sm leading-6 wrap-anywhere">
-                {file.purpose}
+          <section
+            id="beginner-guide"
+            className="space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+          >
+            <SectionTitle id="beginner-guide" title="Beginner guide" />
+            <ol className="list-decimal space-y-2 pl-5 text-muted-foreground text-sm leading-7 wrap-anywhere">
+              {analysis.beginnerGuide.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ol>
+          </section>
+
+          <section
+            id="key-files"
+            className="space-y-4 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+          >
+            <div className="space-y-1">
+              <SectionTitle id="key-files" title="Key files" />
+              <p className="text-muted-foreground text-sm leading-6">
+                Start with these files to understand how the codebase fits
+                together.
               </p>
-              {file.citation ? (
-                <RepoCitationLink citation={file.citation} className="mt-2" />
-              ) : null}
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="grid gap-3 md:grid-cols-2">
+              {analysis.keyFiles.map((file) => (
+                <div
+                  key={file.path}
+                  className="rounded-lg border bg-muted/15 p-3"
+                >
+                  <div className="flex items-center gap-2 font-medium text-sm">
+                    <FileCode2 className="size-4 text-primary" />
+                    <span className="break-all">{file.path}</span>
+                  </div>
+                  <p className="mt-1 text-muted-foreground text-sm leading-6 wrap-anywhere">
+                    {file.purpose}
+                  </p>
+                  {file.citation ? (
+                    <RepoCitationLink
+                      citation={file.citation}
+                      className="mt-2"
+                    />
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </section>
+        </TabsContent>
 
-      <RepoFilesSection
-        analyzedRef={
-          analysis.provenance.analyzedCommitSha ?? analysis.repo.defaultBranch
-        }
-        repoId={repoId}
-        repoUrl={analysis.repo.url}
-      />
+        <TabsContent className="space-y-6" value="diagram">
+          <section
+            id="diagram"
+            className="space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+          >
+            <div className="space-y-1">
+              <SectionTitle id="diagram" title="Diagram" />
+              <p className="text-muted-foreground text-sm leading-6">
+                A simplified map of the important code layers and how work moves
+                through the repository.
+              </p>
+            </div>
+            <RepoDiagram analysis={analysis} />
+          </section>
+        </TabsContent>
 
-      <section id="risks" className="grid gap-4 scroll-mt-24 md:grid-cols-2">
-        <ListCard title="Tech stack" items={analysis.techStack} />
-        <ListCard
-          title="Risks and gaps"
-          items={analysis.risks}
-          tone="warning"
-        />
-      </section>
+        <TabsContent className="space-y-4" value="wiki">
+          <section
+            id="wiki"
+            className="space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+          >
+            <h2 className="font-semibold text-2xl tracking-normal">
+              Repo wiki
+            </h2>
+            <p className="text-muted-foreground text-sm leading-6">
+              Generated sections from the selected repository files and report
+              context.
+            </p>
+          </section>
+          <Accordion
+            className="space-y-4"
+            defaultValue={defaultWikiSections}
+            type="multiple"
+          >
+            {analysis.wikiSections.map((section) => (
+              <WikiSectionView key={section.title} section={section} />
+            ))}
+          </Accordion>
+        </TabsContent>
 
-      {analysis.warnings.length > 0 ? (
-        <ListCard title="Warnings" items={analysis.warnings} tone="warning" />
-      ) : null}
+        <TabsContent className="space-y-6" value="files">
+          <RepoFilesSection
+            analyzedRef={
+              analysis.provenance.analyzedCommitSha ??
+              analysis.repo.defaultBranch
+            }
+            openRequest={fileOpenRequest}
+            repoId={repoId}
+            repoUrl={analysis.repo.url}
+          />
+        </TabsContent>
 
-      <AnalyzerDebug analysis={analysis} />
+        <TabsContent value="chat">
+          <section id="chat" className="scroll-mt-24">
+            <RepoChatPanel layout="tab" repo={repo} />
+          </section>
+        </TabsContent>
+
+        <TabsContent className="space-y-6" value="risks">
+          <section
+            id="risks"
+            className="grid gap-4 scroll-mt-24 md:grid-cols-2"
+          >
+            <ListCard title="Tech stack" items={analysis.techStack} />
+            <ListCard
+              title="Risks and gaps"
+              items={analysis.risks}
+              tone="warning"
+            />
+          </section>
+
+          {analysis.warnings.length > 0 ? (
+            <ListCard
+              title="Warnings"
+              items={analysis.warnings}
+              tone="warning"
+            />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="debug">
+          <AnalyzerDebug analysis={analysis} />
+        </TabsContent>
+      </Tabs>
     </article>
   );
 };
@@ -187,9 +337,12 @@ function SourceCoverage({ analysis }: { analysis: RepositoryAnalysis }) {
   ];
 
   return (
-    <section className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {coverageItems.map((item) => (
-        <div key={item.label} className="min-w-0">
+        <div
+          key={item.label}
+          className="min-w-0 rounded-lg border bg-background p-4 shadow-sm"
+        >
           <p className="text-muted-foreground text-xs uppercase tracking-normal">
             {item.label}
           </p>
@@ -212,7 +365,10 @@ function TextSection({
   value: string;
 }) {
   return (
-    <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
+    <section
+      id={id}
+      className="min-w-0 space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+    >
       <SectionTitle id={id} title={title} />
       <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
         {value}
@@ -238,7 +394,7 @@ function WikiSectionView({ section }: { section: WikiSection }) {
   return (
     <section id={id} className="scroll-mt-24">
       <AccordionItem
-        className="rounded-lg border bg-card/40 px-4 shadow-sm"
+        className="rounded-lg border bg-background px-4 shadow-sm"
         value={id}
       >
         <div className="flex items-center gap-3">
@@ -277,7 +433,7 @@ function ListCard({
   tone?: "warning";
 }) {
   return (
-    <Card>
+    <Card className="bg-background shadow-sm">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
@@ -310,7 +466,7 @@ function AnalyzerDebug({ analysis }: { analysis: RepositoryAnalysis }) {
   return (
     <section id="debug" className="scroll-mt-24">
       <Collapsible>
-        <Card>
+        <Card className="bg-background shadow-sm">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
