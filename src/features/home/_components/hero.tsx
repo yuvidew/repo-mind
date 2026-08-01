@@ -1,6 +1,9 @@
 import {
+  ArrowRight,
   Bot,
+  CheckCircle2,
   FileCode2,
+  Gauge,
   GitBranch,
   MessageSquareText,
   Network,
@@ -11,34 +14,51 @@ import { RepoUrlForm } from "./repo-url-form";
 export const Hero = () => {
   return (
     <section className="border-b bg-background">
-      <div className="mx-auto flex min-h-[calc(82svh-3.5rem)] w-full max-w-7xl flex-col items-center justify-center gap-8 px-4 py-16 text-center sm:px-6 lg:px-8">
-        <div className="flex max-w-3xl flex-col items-center gap-5">
-          <Badge variant="outline" className="gap-2 rounded-lg px-3 py-1">
-            AI repo wiki, diagram, and chat
-          </Badge>
-          <div className="space-y-4">
-            <h1 className="text-balance font-semibold text-4xl tracking-normal sm:text-5xl lg:text-6xl">
-              Understand any GitHub repository as a guided developer workspace.
-            </h1>
-            <p className="mx-auto max-w-2xl text-muted-foreground text-sm leading-6 sm:text-base">
-              Paste a repository link and RepoMind turns it into a guided
-              report, architecture map, key-file walkthrough, and codebase chat
-              surface.
-            </p>
+      <div className="mx-auto grid min-h-[calc(86svh-3.5rem)] w-full max-w-7xl items-center gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(480px,1.15fr)] lg:px-8">
+        <div className="min-w-0 space-y-7">
+          <div className="space-y-5">
+            <Badge variant="outline" className="gap-2 rounded-lg px-3 py-1">
+              <Gauge className="size-3.5" />
+              Repo intelligence workspace
+            </Badge>
+            <div className="space-y-4">
+              <h1 className="max-w-4xl text-balance font-semibold text-4xl tracking-normal sm:text-5xl lg:text-6xl">
+                Understand any GitHub repo without hunting through files.
+              </h1>
+              <p className="max-w-2xl text-muted-foreground text-sm leading-6 sm:text-base">
+                Paste a repository link and RepoMind turns it into a report,
+                interactive architecture map, key-file walkthrough, and cited
+                chat workspace.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <RepoUrlForm className="w-full max-w-3xl" />
+          <RepoUrlForm className="w-full max-w-2xl" />
 
-        <div className="grid w-full max-w-3xl gap-3 text-left text-muted-foreground text-xs sm:grid-cols-3">
-          <div className="rounded-lg border bg-background/70 px-3 py-2">
-            Public GitHub repos first
+          <div className="grid gap-3 sm:grid-cols-3">
+            {[
+              ["Public repos", "Analyze GitHub projects first"],
+              ["Fast or deep", "Choose scan depth per repo"],
+              ["Saved context", "Return to reports and chat"],
+            ].map(([label, value]) => (
+              <div className="rounded-lg border bg-card p-3" key={label}>
+                <div className="mb-2 flex items-center gap-2 text-primary">
+                  <CheckCircle2 className="size-4" />
+                  <p className="font-medium text-sm">{label}</p>
+                </div>
+                <p className="text-muted-foreground text-xs leading-5">
+                  {value}
+                </p>
+              </div>
+            ))}
           </div>
-          <div className="rounded-lg border bg-background/70 px-3 py-2">
-            Fast or deep scan mode
-          </div>
-          <div className="rounded-lg border bg-background/70 px-3 py-2">
-            Built for saved reports later
+
+          <div className="flex flex-wrap items-center gap-3 text-muted-foreground text-sm">
+            <span>Inspect report</span>
+            <ArrowRight className="size-4" />
+            <span>Open diagram</span>
+            <ArrowRight className="size-4" />
+            <span>Ask cited questions</span>
           </div>
         </div>
 
@@ -52,7 +72,7 @@ function HeroWorkspacePreview() {
   return (
     <div
       aria-hidden="true"
-      className="mt-4 w-full max-w-6xl overflow-hidden rounded-lg border bg-muted/20 p-3 text-left shadow-sm"
+      className="w-full min-w-0 overflow-hidden rounded-lg border bg-muted/20 p-3 text-left shadow-sm"
     >
       <div className="rounded-md border bg-background">
         <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 p-3">
@@ -75,7 +95,7 @@ function HeroWorkspacePreview() {
           </Badge>
         </div>
 
-        <div className="grid min-h-80 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,1fr)_300px]">
           <div className="min-w-0 border-b p-4 lg:border-r lg:border-b-0">
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -89,8 +109,8 @@ function HeroWorkspacePreview() {
               </div>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-              <div className="grid min-h-40 place-items-center rounded-lg border bg-muted/20">
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_190px]">
+              <div className="grid min-h-56 place-items-center rounded-lg border bg-muted/20">
                 <div className="text-center">
                   <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <Network className="size-6" />
@@ -119,7 +139,7 @@ function HeroWorkspacePreview() {
             </div>
           </div>
 
-          <div className="flex min-h-72 flex-col bg-muted/15 p-4">
+          <div className="flex min-h-80 flex-col bg-muted/15 p-4">
             <div className="mb-4 flex items-center gap-2">
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Bot className="size-4" />
