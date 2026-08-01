@@ -31,9 +31,13 @@ export const RepoCitationLink = ({
       }),
     );
 
-    document.getElementById("files")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        document.getElementById("files")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
     });
   };
 

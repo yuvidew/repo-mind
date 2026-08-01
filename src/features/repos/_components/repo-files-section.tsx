@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 
 type RepoFilesSectionProps = {
   analyzedRef?: string | null;
+  openRequest?: RepoFileOpenRequest | null;
   repoId: string;
   repoUrl?: string;
 };
@@ -55,10 +56,16 @@ type FileHighlightRange = {
   startLine?: number;
 };
 
+type RepoFileOpenRequest = FileHighlightRange & {
+  id: string;
+  path: string;
+};
+
 type CopyTarget = "code" | "path";
 
 export const RepoFilesSection = ({
   analyzedRef,
+  openRequest,
   repoId,
   repoUrl,
 }: RepoFilesSectionProps) => {
@@ -228,6 +235,17 @@ export const RepoFilesSection = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (!openRequest?.path) return;
+
+    setQuery("");
+    setHighlightRange({
+      endLine: openRequest.endLine,
+      startLine: openRequest.startLine,
+    });
+    setActivePath(openRequest.path);
+  }, [openRequest]);
+
   const filteredFiles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -256,19 +274,34 @@ export const RepoFilesSection = ({
 
   return (
     <section id="files" className="space-y-4 scroll-mt-24">
-      <div className="space-y-1">
-        <h2 className="font-semibold text-2xl tracking-normal">
-          Repository files
-        </h2>
-        <p className="text-muted-foreground text-sm leading-6">
-          Browse saved repository files, inspect source, and verify cited line
-          ranges.
-        </p>
+      <div className="flex flex-col gap-3 rounded-lg border bg-background p-5 shadow-sm md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0 space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FileCode2 className="size-4" />
+            </span>
+            <h2 className="font-semibold text-2xl tracking-normal">
+              Repository files
+            </h2>
+          </div>
+          <p className="max-w-3xl text-muted-foreground text-sm leading-6">
+            Browse saved repository files, inspect source, and verify cited line
+            ranges in the code viewer.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-sm sm:flex">
+          <Badge variant="outline">
+            {structureFiles.length.toLocaleString()} saved
+          </Badge>
+          <Badge variant="outline">
+            {filteredFiles.length.toLocaleString()} visible
+          </Badge>
+        </div>
       </div>
 
       <Card className="overflow-hidden border-primary/10 bg-background p-0 shadow-sm">
-        <CardContent className="grid min-h-130 p-0 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
-          <aside className="border-b bg-muted/20 lg:border-r lg:border-b-0">
+        <CardContent className="grid min-h-[720px] p-0 xl:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
+          <aside className="border-b bg-muted/20 xl:border-r xl:border-b-0">
             <div className="space-y-3 border-b p-3">
               <div className="relative">
                 <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
@@ -285,7 +318,7 @@ export const RepoFilesSection = ({
               </div>
             </div>
 
-            <ScrollArea className="h-115 overflow-hidden **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45">
+            <ScrollArea className="h-[640px] overflow-hidden **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45">
               <div className="p-2">
                 {isLoadingList ? (
                   <LoadingState label="Loading structure" />
@@ -384,6 +417,7 @@ function FileTree({
             key={file.path}
             onClick={() => onSelect(file.path)}
             style={{ paddingLeft: `${depth * 12 + 8}px` }}
+            title={file.path}
             type="button"
           >
             <FileCode2 className="size-3.5 shrink-0" />
@@ -430,7 +464,7 @@ function FileViewer({
 
   if (!activePath) {
     return (
-      <div className="flex min-h-115 items-center justify-center p-6">
+      <div className="flex min-h-[640px] items-center justify-center p-6">
         <div className="max-w-sm text-center">
           <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
             <Code2 className="size-6" />
@@ -446,7 +480,7 @@ function FileViewer({
   }
 
   return (
-    <div className="flex min-h-115 min-w-0 flex-col">
+    <div className="flex min-h-[640px] min-w-0 flex-col">
       <div className="space-y-3 border-b bg-muted/10 p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 space-y-2">

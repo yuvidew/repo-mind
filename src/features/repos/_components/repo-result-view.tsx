@@ -1,9 +1,7 @@
 import type { RepoResultData } from "@/lib/repos/repo-adapters";
 import { RepoAnalysisState } from "./repo-analysis-state";
-import { RepoChatPanel } from "./repo-chat-panel";
 import { RepoReportContent } from "./repo-report-content";
 import { RepoResultHeader } from "./repo-result-header";
-import { RepoSectionNav } from "./repo-section-nav";
 
 type RepoResultViewProps = {
   result: RepoResultData | null;
@@ -30,11 +28,7 @@ export const RepoResultView = ({ result }: RepoResultViewProps) => {
       <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <RepoResultHeader analysis={analysis} repo={repo} />
 
-        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_320px] lg:items-start xl:grid-cols-[230px_minmax(0,1fr)_360px]">
-          <RepoSectionNav analysis={analysis} />
-          <RepoReportContent analysis={analysis} repoId={repo.id} />
-          <RepoChatPanel repo={repo} />
-        </div>
+        <RepoReportContent analysis={analysis} repo={repo} repoId={repo.id} />
       </div>
     </main>
   );

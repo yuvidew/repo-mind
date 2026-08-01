@@ -12,6 +12,7 @@ import { RepoCitationLink } from "./repo-citation-link";
 import type { DemoRepo } from "./repo-demo-data";
 
 type RepoChatPanelProps = {
+  layout?: "side" | "tab";
   repo: DemoRepo;
 };
 
@@ -29,7 +30,10 @@ const examplePrompts = [
   "Explain the architecture simply.",
 ];
 
-export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
+export const RepoChatPanel = ({
+  layout = "side",
+  repo,
+}: RepoChatPanelProps) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
@@ -208,8 +212,15 @@ export const RepoChatPanel = ({ repo }: RepoChatPanelProps) => {
   }
 
   return (
-    <aside className="lg:sticky lg:top-6">
-      <Card className="h-[min(680px,calc(100vh-3rem))] min-h-110 overflow-hidden border-primary/10 bg-background p-0 shadow-sm">
+    <aside className={cn(layout === "side" && "lg:sticky lg:top-6")}>
+      <Card
+        className={cn(
+          "overflow-hidden border-primary/10 bg-background p-0 shadow-sm",
+          layout === "side"
+            ? "h-[min(680px,calc(100vh-3rem))] min-h-110"
+            : "h-[720px]",
+        )}
+      >
         <div className="flex h-full min-h-0 flex-col">
           <div className="border-b bg-muted/20 p-4">
             <div className="flex items-start gap-3">

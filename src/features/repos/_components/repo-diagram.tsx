@@ -47,7 +47,7 @@ export const RepoDiagram = ({ analysis }: RepoDiagramProps) => {
   return (
     <div
       className={cn(
-        "rounded-lg border bg-muted/20",
+        "overflow-hidden rounded-lg border bg-muted/20",
         isFullscreen &&
           "fixed inset-4 z-50 overflow-hidden bg-background shadow-2xl",
       )}
@@ -104,12 +104,12 @@ export const RepoDiagram = ({ analysis }: RepoDiagramProps) => {
       </div>
       <div
         className={cn(
-          "relative min-h-115 w-full min-w-0 overflow-auto p-4",
+          "relative min-h-[620px] w-full min-w-0 overflow-auto bg-muted/10 p-4",
           isFullscreen && "h-[calc(100%-4.5rem)] min-h-0",
         )}
       >
         <div
-          className="relative min-h-115 origin-center transition-transform"
+          className="relative min-h-[590px] min-w-[860px] origin-center transition-transform"
           style={{ transform: `scale(${scale})` }}
         >
           <svg
@@ -145,7 +145,7 @@ export const RepoDiagram = ({ analysis }: RepoDiagramProps) => {
             <button
               key={node.id}
               className={cn(
-                "absolute flex min-h-20 w-36 -translate-x-1/2 -translate-y-1/2 flex-col justify-center rounded-lg border bg-background p-2.5 text-center shadow-sm transition-colors",
+                "absolute flex min-h-24 w-44 -translate-x-1/2 -translate-y-1/2 flex-col justify-center rounded-lg border bg-background p-3 text-center shadow-sm transition-colors",
                 node.citation && "hover:border-primary hover:text-primary",
               )}
               disabled={!node.citation}
@@ -185,9 +185,13 @@ function openNodeCitation(node: DiagramNodeLayout) {
     }),
   );
 
-  document.getElementById("files")?.scrollIntoView({
-    behavior: "smooth",
-    block: "start",
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      document.getElementById("files")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   });
 }
 

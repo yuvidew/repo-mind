@@ -1,62 +1,17 @@
-import { Bot, FileCode2, GitBranch, Network } from "lucide-react";
+import {
+  Bot,
+  FileCode2,
+  GitBranch,
+  MessageSquareText,
+  Network,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { RepoUrlForm } from "./repo-url-form";
 
 export const Hero = () => {
   return (
-    <section className="relative overflow-hidden border-b bg-background">
-      <div
-        aria-hidden="true"
-        className="-bottom-32 absolute inset-x-4 mx-auto hidden max-w-5xl rounded-lg border bg-muted/25 p-4 shadow-sm sm:block"
-      >
-        <div className="grid h-80 overflow-hidden rounded-md border bg-background lg:grid-cols-[180px_minmax(0,1fr)_240px]">
-          <div className="border-r bg-muted/25 p-4">
-            <div className="mb-5 flex items-center gap-2 font-medium text-sm">
-              <GitBranch className="size-4 text-primary" />
-              Repo Wiki
-            </div>
-            <div className="space-y-2">
-              {["Overview", "Diagram", "Files", "Risks"].map((item) => (
-                <div
-                  className="h-8 rounded-md border bg-background px-3 py-2 text-muted-foreground text-xs"
-                  key={item}
-                >
-                  {item}
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="border-r p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div className="h-5 w-36 rounded-md bg-foreground/15" />
-              <Badge variant="outline">Ready</Badge>
-            </div>
-            <div className="mb-4 grid h-28 place-items-center rounded-lg border bg-muted/25">
-              <Network className="size-8 text-primary" />
-            </div>
-            <div className="grid gap-3">
-              <div className="h-16 rounded-lg border bg-muted/15" />
-              <div className="h-16 rounded-lg border bg-muted/15" />
-            </div>
-          </div>
-          <div className="flex flex-col bg-muted/20 p-4">
-            <div className="mb-auto grid flex-1 place-items-center text-center">
-              <div>
-                <div className="mx-auto mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Bot className="size-5" />
-                </div>
-                <p className="font-medium text-sm">Repo chat</p>
-              </div>
-            </div>
-            <div className="flex h-10 items-center gap-2 rounded-lg border bg-background px-3 text-muted-foreground text-xs">
-              <FileCode2 className="size-4" />
-              Ask with citations
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="relative z-10 mx-auto flex min-h-[calc(86svh-3.5rem)] w-full max-w-7xl flex-col items-center justify-center gap-8 px-4 pt-16 pb-36 text-center sm:px-6 lg:px-8">
+    <section className="border-b bg-background">
+      <div className="mx-auto flex min-h-[calc(82svh-3.5rem)] w-full max-w-7xl flex-col items-center justify-center gap-8 px-4 py-16 text-center sm:px-6 lg:px-8">
         <div className="flex max-w-3xl flex-col items-center gap-5">
           <Badge variant="outline" className="gap-2 rounded-lg px-3 py-1">
             AI repo wiki, diagram, and chat
@@ -86,7 +41,113 @@ export const Hero = () => {
             Built for saved reports later
           </div>
         </div>
+
+        <HeroWorkspacePreview />
       </div>
     </section>
   );
 };
+
+function HeroWorkspacePreview() {
+  return (
+    <div
+      aria-hidden="true"
+      className="mt-4 w-full max-w-6xl overflow-hidden rounded-lg border bg-muted/20 p-3 text-left shadow-sm"
+    >
+      <div className="rounded-md border bg-background">
+        <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 p-3">
+          {["Overview", "Diagram", "Wiki", "Files", "Chat"].map(
+            (item, index) => (
+              <div
+                className={
+                  index === 0
+                    ? "rounded-md bg-background px-3 py-1.5 font-medium text-xs shadow-sm"
+                    : "rounded-md px-3 py-1.5 text-muted-foreground text-xs"
+                }
+                key={item}
+              >
+                {item}
+              </div>
+            ),
+          )}
+          <Badge className="ml-auto" variant="outline">
+            Ready
+          </Badge>
+        </div>
+
+        <div className="grid min-h-80 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="min-w-0 border-b p-4 lg:border-r lg:border-b-0">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <GitBranch className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm">owner/repository</p>
+                <p className="text-muted-foreground text-xs">
+                  Generated repo intelligence workspace
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+              <div className="grid min-h-40 place-items-center rounded-lg border bg-muted/20">
+                <div className="text-center">
+                  <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Network className="size-6" />
+                  </div>
+                  <p className="font-medium text-sm">Architecture diagram</p>
+                  <p className="mt-1 text-muted-foreground text-xs">
+                    Modules, data flow, and source citations
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  ["Files", "1,248 saved"],
+                  ["Sampled", "42 cited"],
+                  ["Mode", "Deep scan"],
+                ].map(([label, value]) => (
+                  <div
+                    className="rounded-lg border bg-background p-3"
+                    key={label}
+                  >
+                    <p className="text-muted-foreground text-xs">{label}</p>
+                    <p className="mt-1 font-medium text-sm">{value}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex min-h-72 flex-col bg-muted/15 p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <div className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Bot className="size-4" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">Repo chat</p>
+                <p className="text-muted-foreground text-xs">
+                  Answers with file citations
+                </p>
+              </div>
+            </div>
+            <div className="space-y-3 text-sm">
+              <div className="rounded-lg border bg-background p-3 text-muted-foreground">
+                Which files should I read first?
+              </div>
+              <div className="rounded-lg border bg-background p-3">
+                Start with the route handlers, repo services, and analyzer
+                pipeline.
+              </div>
+            </div>
+            <div className="mt-auto flex h-10 items-center gap-2 rounded-lg border bg-background px-3 text-muted-foreground text-xs">
+              <FileCode2 className="size-4" />
+              Ask about code, files, or architecture
+              <MessageSquareText className="ml-auto size-4" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
