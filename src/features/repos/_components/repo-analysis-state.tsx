@@ -8,14 +8,12 @@ import {
   Clock3,
   Database,
   ExternalLink,
-  FileCode2,
   FileSearch,
   FileText,
-  GitFork,
   type LucideIcon,
   MessageSquareText,
+  Network,
   RefreshCw,
-  Route,
   SearchX,
   Sparkles,
 } from "lucide-react";
@@ -49,6 +47,8 @@ type RepoStatusResponse = {
 type RepoAnalysisStateProps =
   | { state: "not-found"; repo?: never }
   | { state: "analyzing" | "failed"; repo: DemoRepo };
+
+type AnalysisStage = "queued" | "fetching" | "parsing" | "reporting" | "ready";
 
 export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
   const router = useRouter();
@@ -146,61 +146,39 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
   };
 
   if (isNotFound) {
-    return (
-      <main className="min-h-screen bg-background text-foreground">
-        <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-          <AnalysisTopBar />
-          <div className="flex flex-1 items-center justify-center">
-            <Card className="w-full max-w-2xl">
-              <CardHeader>
-                <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <SearchX />
-                </div>
-                <CardTitle>Repository not found</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm leading-6">
-                  This repository id does not exist. Return to the repositories
-                  page and open one of the available cards.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </main>
-    );
+    return <NotFoundState />;
   }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col gap-7 px-4 py-6 sm:px-6 lg:px-8">
         <AnalysisTopBar />
 
         {isAnalyzing ? (
-          <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <section className="min-w-0 space-y-6">
+          <section className="flex flex-1 items-center py-6">
+            <div className="w-full space-y-5">
               <div className="rounded-lg border bg-card p-5 shadow-sm sm:p-6">
-                <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="min-w-0 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-center">
+                  <div className="min-w-0 space-y-5">
+                    <div className="flex min-w-0 items-start gap-4">
+                      <span className="relative flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <Clock3 className="size-6 animate-pulse" />
                         <span className="absolute -right-1 -bottom-1 size-3 rounded-full bg-primary" />
-                      </div>
+                      </span>
                       <div className="min-w-0">
                         <p className="text-primary text-sm">
-                          Live repository analysis
+                          Analyzing repository
                         </p>
-                        <h1 className="break-words font-semibold text-3xl tracking-normal sm:text-4xl">
+                        <h1 className="break-words font-semibold text-3xl tracking-normal sm:text-4xl lg:text-5xl">
                           {repo.owner}/{repo.name}
                         </h1>
+                        <p className="mt-3 max-w-2xl text-muted-foreground text-sm leading-6 sm:text-base">
+                          RepoMind is preparing the report, file context,
+                          architecture map, and chat workspace.
+                        </p>
                       </div>
                     </div>
-                    <p className="max-w-3xl text-muted-foreground text-sm leading-6 sm:text-base">
-                      RepoMind is building a guided workspace while files,
-                      report sections, diagram nodes, and chat context are
-                      prepared in the background.
-                    </p>
+
                     <div className="flex flex-wrap gap-2">
                       <Badge variant="secondary">{currentStage.label}</Badge>
                       <Badge variant="outline">{repo.branch}</Badge>
@@ -211,30 +189,34 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
                     </div>
                   </div>
 
-                  <div className="w-full shrink-0 rounded-lg border bg-background p-4 xl:w-80">
-                    <div className="mb-2 flex items-center justify-between text-sm">
-                      <span className="font-medium">Analysis progress</span>
-                      <span className="text-muted-foreground">{progress}%</span>
-                    </div>
-                    <Progress className="h-2" value={progress} />
-                    <p className="mt-3 text-muted-foreground text-sm leading-6">
-                      {progressMessage}
-                    </p>
-                  </div>
+                  <ProgressDial progress={progress} />
                 </div>
+
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">{currentStage.label}</span>
+                    <span className="text-muted-foreground">{progress}%</span>
+                  </div>
+                  <Progress className="h-2" value={progress} />
+                  <p className="text-muted-foreground text-sm leading-6">
+                    {progressMessage}
+                  </p>
+                </div>
+
+                <AnalysisStepper currentStage={currentStage.value} />
               </div>
 
               {isLikelyStuck ? (
                 <Alert className="border-amber-500/30 bg-amber-500/10">
                   <AlertCircle className="size-4" />
                   <AlertTitle>Worker has not started yet</AlertTitle>
-                  <AlertDescription className="space-y-3">
-                    <span className="block">
-                      This analysis is still queued at 5%. In local development,
-                      make sure the Inngest dev server is synced to the same
-                      port as the Next.js app, then retry the analysis.
+                  <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      This job is still queued. Retry after confirming the local
+                      Inngest worker is connected to the active app port.
                     </span>
                     <Button
+                      className="w-fit"
                       disabled={isRetrying}
                       onClick={retryAnalysis}
                       size="sm"
@@ -247,73 +229,47 @@ export const RepoAnalysisState = ({ repo, state }: RepoAnalysisStateProps) => {
                 </Alert>
               ) : null}
 
-              <AnalysisWorkspaceSkeleton progress={progress} />
-            </section>
-
-            <aside className="space-y-4">
-              <AnalysisStepTimeline
-                currentStage={currentStage.value}
-                progress={progress}
-              />
-              <Card className="bg-card shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <GitFork className="size-4 text-primary" />
-                    What is happening now
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-muted-foreground text-sm leading-6">
-                  <p>
-                    Metadata and the GitHub tree are checked first, then a small
-                    set of high-signal files is selected for the first report.
-                  </p>
-                  <p>
-                    If the model is slow, RepoMind keeps the workspace usable by
-                    saving fallback report content from the sampled code.
-                  </p>
-                </CardContent>
-              </Card>
-            </aside>
-          </div>
+              <WorkspacePreview currentStage={currentStage.value} />
+            </div>
+          </section>
         ) : (
-          <div className="flex flex-1 items-center justify-center">
-            <Card className="w-full max-w-2xl">
-              <CardHeader>
-                <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
-                  <AlertCircle />
-                </div>
-                <CardTitle>
-                  {repo.owner}/{repo.name} failed analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert variant="destructive">
-                  <AlertTitle>Analysis could not finish</AlertTitle>
-                  <AlertDescription>
-                    {errorMsg ??
-                      "The analysis stopped before a report was generated."}
-                  </AlertDescription>
-                </Alert>
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={retryAnalysis} disabled={isRetrying}>
-                    <RefreshCw className={cn(isRetrying && "animate-spin")} />
-                    {isRetrying ? "Retrying" : "Retry analysis"}
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <a href={repo.url} target="_blank" rel="noreferrer">
-                      <ExternalLink />
-                      View GitHub
-                    </a>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <FailedState
+            errorMsg={errorMsg}
+            isRetrying={isRetrying}
+            repo={repo}
+            retryAnalysis={retryAnalysis}
+          />
         )}
       </div>
     </main>
   );
 };
+
+function NotFoundState() {
+  return (
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        <AnalysisTopBar />
+        <div className="flex flex-1 items-center justify-center">
+          <Card className="w-full max-w-2xl">
+            <CardHeader>
+              <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <SearchX />
+              </div>
+              <CardTitle>Repository not found</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm leading-6">
+                This repository id does not exist. Return to the repositories
+                page and open one of the available cards.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </main>
+  );
+}
 
 function AnalysisTopBar() {
   return (
@@ -334,40 +290,55 @@ function AnalysisTopBar() {
   );
 }
 
-function AnalysisStepTimeline({
-  currentStage,
-  progress,
-}: {
-  currentStage: AnalysisStage;
-  progress: number;
-}) {
+function ProgressDial({ progress }: { progress: number }) {
   return (
-    <Card className="bg-card shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Route className="size-4 text-primary" />
-          Analysis pipeline
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {analysisSteps.map((step, index) => {
-          const Icon = step.icon;
-          const isComplete = step.minProgress < progress;
-          const isActive = step.value === currentStage;
+    <div className="flex justify-start lg:justify-end">
+      <div
+        aria-label={`Analysis ${progress}% complete`}
+        className="grid size-40 place-items-center rounded-full"
+        role="img"
+        style={{
+          background: `conic-gradient(var(--primary) ${progress * 3.6}deg, var(--muted) 0deg)`,
+        }}
+      >
+        <div className="grid size-32 place-items-center rounded-full border bg-background">
+          <div className="text-center">
+            <p className="font-semibold text-4xl tracking-normal">{progress}</p>
+            <p className="text-muted-foreground text-xs">percent</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-          return (
-            <div
-              className={cn(
-                "grid grid-cols-[2rem_minmax(0,1fr)] gap-3 rounded-lg border bg-background p-3",
-                isActive && "border-primary/40 bg-primary/5",
-              )}
-              key={step.value}
-            >
-              <div
+function AnalysisStepper({ currentStage }: { currentStage: AnalysisStage }) {
+  const currentIndex = analysisSteps.findIndex(
+    (step) => step.value === currentStage,
+  );
+
+  return (
+    <div className="mt-6 grid gap-2 md:grid-cols-5">
+      {analysisSteps.map((step, index) => {
+        const Icon = step.icon;
+        const isComplete = index < currentIndex;
+        const isActive = index === currentIndex;
+
+        return (
+          <div
+            className={cn(
+              "min-w-0 rounded-lg border bg-background p-3",
+              isActive && "border-primary/40 bg-primary/5",
+              isComplete && "border-primary/20",
+            )}
+            key={step.value}
+          >
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span
                 className={cn(
                   "flex size-8 items-center justify-center rounded-lg border bg-muted/30 text-muted-foreground",
                   isActive && "border-primary/30 bg-primary/10 text-primary",
-                  isComplete && "border-primary/20 text-primary",
+                  isComplete && "text-primary",
                 )}
               >
                 {isComplete ? (
@@ -375,172 +346,190 @@ function AnalysisStepTimeline({
                 ) : (
                   <Icon className={cn("size-4", isActive && "animate-pulse")} />
                 )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="font-medium text-sm">{step.label}</p>
-                  <span className="text-muted-foreground text-xs">
-                    0{index + 1}
-                  </span>
+              </span>
+              <span className="text-muted-foreground text-xs">
+                0{index + 1}
+              </span>
+            </div>
+            <p className="truncate font-medium text-sm">{step.label}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function WorkspacePreview({ currentStage }: { currentStage: AnalysisStage }) {
+  return (
+    <div className="rounded-lg border bg-card p-5 shadow-sm">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-medium">Workspace preview</p>
+          <p className="text-muted-foreground text-sm">
+            Sections appear here as the analysis completes.
+          </p>
+        </div>
+        <Badge variant="outline">Building</Badge>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {previewCards.map((card) => {
+          const Icon = card.icon;
+          const isActive = card.stage === currentStage;
+
+          return (
+            <div
+              className={cn(
+                "min-h-44 rounded-lg border bg-background p-4",
+                isActive && "border-primary/40 bg-primary/5",
+              )}
+              key={card.title}
+            >
+              <div className="mb-4 flex items-center gap-3">
+                <span
+                  className={cn(
+                    "flex size-9 items-center justify-center rounded-lg bg-muted/40 text-muted-foreground",
+                    isActive && "bg-primary/10 text-primary",
+                  )}
+                >
+                  <Icon className="size-4" />
+                </span>
+                <div>
+                  <p className="font-medium text-sm">{card.title}</p>
+                  <p className="text-muted-foreground text-xs">
+                    {isActive ? "In progress" : card.status}
+                  </p>
                 </div>
-                <p className="mt-1 text-muted-foreground text-xs leading-5">
-                  {step.description}
-                </p>
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="h-3 w-4/5" />
+                <Skeleton className="h-3 w-2/3" />
               </div>
             </div>
           );
         })}
-      </CardContent>
-    </Card>
-  );
-}
-
-function AnalysisWorkspaceSkeleton({ progress }: { progress: number }) {
-  return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm">
-      <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-        {["Overview", "Diagram", "Wiki", "Files", "Chat"].map((item) => (
-          <div
-            className="rounded-md border bg-background px-3 py-1.5 text-muted-foreground text-xs"
-            key={item}
-          >
-            {item}
-          </div>
-        ))}
-        <Badge className="ml-auto" variant="outline">
-          Building
-        </Badge>
-      </div>
-
-      <div className="grid min-h-[520px] lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="min-w-0 border-b p-4 lg:border-r lg:border-b-0">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <FileText className="size-5" />
-            </div>
-            <div className="min-w-0 flex-1 space-y-2">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-3 w-64 max-w-full" />
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_220px]">
-            <div className="min-h-72 rounded-lg border bg-muted/20 p-4">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm">
-                  <Route className="size-4 text-primary" />
-                  Architecture map
-                </div>
-                <Badge variant="outline">{progress}%</Badge>
-              </div>
-              <div className="relative h-52 overflow-hidden rounded-lg border bg-background/70 p-4">
-                <div className="absolute top-8 left-8 size-16 rounded-lg border bg-primary/10" />
-                <div className="absolute top-20 left-1/2 size-20 -translate-x-1/2 rounded-lg border bg-muted" />
-                <div className="absolute right-8 bottom-8 size-16 rounded-lg border bg-primary/10" />
-                <div className="absolute top-16 left-24 h-px w-32 rotate-12 bg-border" />
-                <div className="absolute right-24 bottom-20 h-px w-32 -rotate-12 bg-border" />
-              </div>
-            </div>
-
-            <div className="grid gap-3">
-              {[
-                ["Files", "Detecting source paths"],
-                ["Chunks", "Preparing retrieval"],
-                ["Citations", "Linking line ranges"],
-              ].map(([label, detail]) => (
-                <div
-                  className="rounded-lg border bg-background p-3"
-                  key={label}
-                >
-                  <p className="text-muted-foreground text-xs">{label}</p>
-                  <p className="mt-1 font-medium text-sm">{detail}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-4 space-y-3">
-            {[72, 88, 58].map((width, index) => (
-              <div className="rounded-lg border bg-background p-3" key={width}>
-                <Skeleton className="mb-3 h-2 w-24" />
-                <Skeleton className="h-3" style={{ width: `${width}%` }} />
-                {index === 1 ? <Skeleton className="mt-2 h-3 w-2/3" /> : null}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <aside className="flex min-h-96 flex-col bg-muted/15 p-4">
-          <div className="mb-4 flex items-center gap-2">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <MessageSquareText className="size-5" />
-            </div>
-            <div>
-              <p className="font-medium">Repo chat</p>
-              <p className="text-muted-foreground text-xs">
-                Unlocks when context is ready
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-20 w-full" />
-            <Skeleton className="h-14 w-5/6" />
-          </div>
-          <div className="mt-auto flex h-10 items-center gap-2 rounded-lg border bg-background px-3 text-muted-foreground text-xs">
-            <FileCode2 className="size-4" />
-            Questions become available after analysis
-          </div>
-        </aside>
       </div>
     </div>
   );
 }
 
-type AnalysisStage = "queued" | "fetching" | "parsing" | "reporting" | "ready";
+function FailedState({
+  errorMsg,
+  isRetrying,
+  repo,
+  retryAnalysis,
+}: {
+  errorMsg: string | null;
+  isRetrying: boolean;
+  repo: DemoRepo;
+  retryAnalysis: () => void;
+}) {
+  return (
+    <div className="flex flex-1 items-center justify-center">
+      <Card className="w-full max-w-2xl">
+        <CardHeader>
+          <div className="mb-2 flex size-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+            <AlertCircle />
+          </div>
+          <CardTitle>
+            {repo.owner}/{repo.name} failed analysis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert variant="destructive">
+            <AlertTitle>Analysis could not finish</AlertTitle>
+            <AlertDescription>
+              {errorMsg ??
+                "The analysis stopped before a report was generated."}
+            </AlertDescription>
+          </Alert>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={retryAnalysis} disabled={isRetrying}>
+              <RefreshCw className={cn(isRetrying && "animate-spin")} />
+              {isRetrying ? "Retrying" : "Retry analysis"}
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={repo.url} target="_blank" rel="noreferrer">
+                <ExternalLink />
+                View GitHub
+              </a>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 const analysisSteps = [
   {
-    description: "The background worker accepts the repo analysis event.",
     icon: Clock3,
     label: "Queued",
     minProgress: 5,
     value: "queued",
   },
   {
-    description: "GitHub metadata, branch, and tree data are loaded.",
     icon: Database,
-    label: "Fetching repository",
+    label: "Fetching",
     minProgress: 20,
     value: "fetching",
   },
   {
-    description: "Important files are selected and source context is sampled.",
     icon: FileSearch,
-    label: "Selecting files",
+    label: "Reading files",
     minProgress: 45,
     value: "parsing",
   },
   {
-    description: "The report, wiki sections, diagram, and citations are built.",
     icon: Sparkles,
-    label: "Generating workspace",
+    label: "Generating",
     minProgress: 70,
     value: "reporting",
   },
   {
-    description: "Files, chunks, and chat-ready context are saved.",
     icon: CheckCircle2,
-    label: "Saving results",
+    label: "Ready",
     minProgress: 95,
     value: "ready",
   },
 ] satisfies Array<{
-  description: string;
   icon: LucideIcon;
   label: string;
   minProgress: number;
   value: AnalysisStage;
+}>;
+
+const previewCards = [
+  {
+    icon: FileText,
+    stage: "reporting",
+    status: "Waiting",
+    title: "Report",
+  },
+  {
+    icon: Network,
+    stage: "reporting",
+    status: "Waiting",
+    title: "Diagram",
+  },
+  {
+    icon: FileSearch,
+    stage: "parsing",
+    status: "Waiting",
+    title: "Files",
+  },
+  {
+    icon: MessageSquareText,
+    stage: "ready",
+    status: "Locked",
+    title: "Chat",
+  },
+] satisfies Array<{
+  icon: LucideIcon;
+  stage: AnalysisStage;
+  status: string;
+  title: string;
 }>;
 
 function getCurrentStage(status: ApiRepoStatus, progress: number) {
@@ -562,28 +551,20 @@ function getProgressMessage(input: {
   }
 
   if (progress >= 90) {
-    return "Finalizing the report and preparing fallback output if the model is slow.";
-  }
-
-  if (progress >= 84) {
-    return "Reading sampled source files and building the chat context.";
-  }
-
-  if (progress >= 78) {
-    return "Scanning the repository tree and selecting important files.";
+    return "Finalizing the workspace and saving generated context.";
   }
 
   if (progress >= 70) {
-    return "Generating the report, wiki sections, diagram nodes, and chat context.";
+    return "Generating the report, wiki sections, diagram nodes, and citations.";
   }
 
   if (progress >= 45) {
-    return "Parsing the file tree and deciding which files matter most.";
+    return "Reading source files and selecting the most useful context.";
   }
 
   if (progress >= 20) {
-    return "Fetching repository metadata from GitHub.";
+    return "Fetching repository metadata, branch details, and file tree.";
   }
 
-  return "Waiting for the background analysis job to start.";
+  return "Queued and ready to start.";
 }
