@@ -42,15 +42,17 @@ export const RepoCitationLink = ({
       className={cn("inline-flex max-w-full items-center gap-1", className)}
     >
       <button
-        className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-muted-foreground text-xs transition-colors hover:text-foreground"
+        className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-muted-foreground text-xs transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
         onClick={openCitation}
         type="button"
       >
         <FileCode2 className="size-3.5 shrink-0" />
-        <span className="truncate">
-          {label}
-          {lineLabel}
-        </span>
+        <span className="truncate">{label}</span>
+        {lineLabel ? (
+          <span className="shrink-0 rounded-sm bg-muted px-1 text-[10px] text-muted-foreground">
+            {lineLabel}
+          </span>
+        ) : null}
       </button>
       {citation.url ? (
         <a

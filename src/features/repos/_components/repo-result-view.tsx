@@ -26,11 +26,11 @@ export const RepoResultView = ({ result }: RepoResultViewProps) => {
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-muted/20 text-foreground">
+      <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <RepoResultHeader analysis={analysis} repo={repo} />
 
-        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_340px] lg:items-start">
+        <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_320px] lg:items-start xl:grid-cols-[230px_minmax(0,1fr)_360px]">
           <RepoSectionNav analysis={analysis} />
           <RepoReportContent analysis={analysis} repoId={repo.id} />
           <RepoChatPanel repo={repo} />

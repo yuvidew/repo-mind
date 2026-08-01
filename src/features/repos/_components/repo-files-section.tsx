@@ -126,8 +126,10 @@ export const RepoFilesSection = ({
     let isMounted = true;
 
     async function loadFile() {
+      setActiveFile(null);
       setIsLoadingFile(true);
       setFileError(null);
+      setCopiedTarget(null);
 
       try {
         const response = await fetch(
@@ -264,16 +266,16 @@ export const RepoFilesSection = ({
         </p>
       </div>
 
-      <Card className="overflow-hidden p-0">
+      <Card className="overflow-hidden border-primary/10 bg-background p-0 shadow-sm">
         <CardContent className="grid min-h-130 p-0 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
-          <aside className="border-b bg-muted/15 lg:border-r lg:border-b-0">
+          <aside className="border-b bg-muted/20 lg:border-r lg:border-b-0">
             <div className="space-y-3 border-b p-3">
               <div className="relative">
                 <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
                 <Input
-                  className="pl-9"
+                  className="bg-background pl-9"
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search structure"
+                  placeholder="Search saved files"
                   value={query}
                 />
               </div>
@@ -375,9 +377,9 @@ function FileTree({
         return (
           <button
             className={cn(
-              "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted",
+              "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/70",
               selectedPath === file.path &&
-                "bg-primary/10 text-primary hover:bg-primary/10",
+                "bg-primary/10 font-medium text-primary hover:bg-primary/10",
             )}
             key={file.path}
             onClick={() => onSelect(file.path)}
@@ -445,7 +447,7 @@ function FileViewer({
 
   return (
     <div className="flex min-h-115 min-w-0 flex-col">
-      <div className="space-y-3 border-b bg-background p-4">
+      <div className="space-y-3 border-b bg-muted/10 p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 space-y-2">
             <div className="flex min-w-0 items-center gap-2">

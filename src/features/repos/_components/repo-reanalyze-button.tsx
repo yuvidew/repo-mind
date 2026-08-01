@@ -46,7 +46,12 @@ export function RepoReanalyzeButton({ repoId }: RepoReanalyzeButtonProps) {
 
   return (
     <div className="space-y-2">
-      <Button disabled={isPending} onClick={reanalyzeDeep} variant="secondary">
+      <Button
+        disabled={isPending}
+        onClick={reanalyzeDeep}
+        size="sm"
+        variant="secondary"
+      >
         <RefreshCw className={isPending ? "animate-spin" : ""} />
         {isPending ? "Starting" : "Deep reanalyze"}
       </Button>

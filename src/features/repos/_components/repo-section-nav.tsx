@@ -28,23 +28,33 @@ export const RepoSectionNav = ({ analysis }: RepoSectionNavProps) => {
   return (
     <aside className="hidden lg:sticky lg:top-6 lg:block lg:max-h-[calc(100vh-3rem)]">
       <ScrollArea className="h-[calc(100vh-3rem)] pr-4 **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45 **:data-[slot=scroll-area-viewport]:pr-3">
-        <div className="space-y-5 border-r pr-5">
-          <div className="flex items-center gap-2 font-semibold">
-            <BookOpenText className="size-4 text-primary" />
-            Repo Wiki
+        <div className="space-y-5 rounded-lg border bg-background p-4 shadow-sm">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 font-semibold">
+              <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <BookOpenText className="size-4" />
+              </span>
+              Repo Wiki
+            </div>
+            <p className="text-muted-foreground text-xs leading-5">
+              Jump between report sections, cited files, and analysis metadata.
+            </p>
           </div>
           <nav className="space-y-2">
             <p className="font-medium text-muted-foreground text-xs uppercase">
               On this page
             </p>
             <div className="space-y-1 border-l pl-3">
-              {links.map((link) => (
+              {links.map((link, index) => (
                 <a
                   key={link.id}
                   href={`#${link.id}`}
-                  className="block text-muted-foreground text-sm leading-5 transition-colors hover:text-foreground"
+                  className="group flex items-center gap-2 rounded-md px-2 py-1.5 text-muted-foreground text-sm leading-5 transition-colors hover:bg-muted/60 hover:text-foreground"
                 >
-                  {link.title}
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted font-medium text-[10px] text-muted-foreground group-hover:text-foreground">
+                    {index + 1}
+                  </span>
+                  <span className="min-w-0 truncate">{link.title}</span>
                 </a>
               ))}
             </div>

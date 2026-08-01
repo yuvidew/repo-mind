@@ -44,14 +44,20 @@ export const RepoReportContent = ({
       <ReportNotice analysis={analysis} />
       <SourceCoverage analysis={analysis} />
 
-      <section id="overview" className="space-y-3 scroll-mt-24">
+      <section
+        id="overview"
+        className="space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+      >
         <SectionTitle id="overview" title="Overview" />
         <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
           {analysis.plainEnglish}
         </p>
       </section>
 
-      <section id="diagram" className="space-y-3 scroll-mt-24">
+      <section
+        id="diagram"
+        className="space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+      >
         <div className="space-y-1">
           <SectionTitle id="diagram" title="Diagram" />
           <p className="text-muted-foreground text-sm leading-6">
@@ -97,7 +103,10 @@ export const RepoReportContent = ({
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           {analysis.keyFiles.map((file) => (
-            <div key={file.path} className="rounded-lg border bg-card p-3">
+            <div
+              key={file.path}
+              className="rounded-lg border bg-background p-3 shadow-sm"
+            >
               <div className="flex items-center gap-2 font-medium text-sm">
                 <FileCode2 className="size-4 text-primary" />
                 <span className="break-all">{file.path}</span>
@@ -187,9 +196,12 @@ function SourceCoverage({ analysis }: { analysis: RepositoryAnalysis }) {
   ];
 
   return (
-    <section className="grid gap-3 rounded-lg border bg-muted/20 p-4 sm:grid-cols-2 lg:grid-cols-5">
+    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       {coverageItems.map((item) => (
-        <div key={item.label} className="min-w-0">
+        <div
+          key={item.label}
+          className="min-w-0 rounded-lg border bg-background p-4 shadow-sm"
+        >
           <p className="text-muted-foreground text-xs uppercase tracking-normal">
             {item.label}
           </p>
@@ -212,7 +224,10 @@ function TextSection({
   value: string;
 }) {
   return (
-    <section id={id} className="min-w-0 space-y-3 scroll-mt-24">
+    <section
+      id={id}
+      className="min-w-0 space-y-3 rounded-lg border bg-background p-5 shadow-sm scroll-mt-24"
+    >
       <SectionTitle id={id} title={title} />
       <p className="text-muted-foreground text-base leading-8 wrap-anywhere">
         {value}
@@ -238,7 +253,7 @@ function WikiSectionView({ section }: { section: WikiSection }) {
   return (
     <section id={id} className="scroll-mt-24">
       <AccordionItem
-        className="rounded-lg border bg-card/40 px-4 shadow-sm"
+        className="rounded-lg border bg-background px-4 shadow-sm"
         value={id}
       >
         <div className="flex items-center gap-3">
@@ -277,7 +292,7 @@ function ListCard({
   tone?: "warning";
 }) {
   return (
-    <Card>
+    <Card className="bg-background shadow-sm">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>
@@ -310,7 +325,7 @@ function AnalyzerDebug({ analysis }: { analysis: RepositoryAnalysis }) {
   return (
     <section id="debug" className="scroll-mt-24">
       <Collapsible>
-        <Card>
+        <Card className="bg-background shadow-sm">
           <CardHeader>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
