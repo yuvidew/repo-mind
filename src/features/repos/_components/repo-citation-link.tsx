@@ -16,9 +16,10 @@ export const RepoCitationLink = ({
   const label = citation.label ?? citation.path;
   const lineLabel = citation.startLine
     ? citation.endLine && citation.endLine !== citation.startLine
-      ? `:${citation.startLine}-${citation.endLine}`
-      : `:${citation.startLine}`
+      ? `L${citation.startLine}-${citation.endLine}`
+      : `L${citation.startLine}`
     : "";
+  const title = `${citation.path}${lineLabel ? ` ${lineLabel}` : ""} - open in Files`;
 
   const openCitation = () => {
     window.dispatchEvent(
@@ -47,7 +48,9 @@ export const RepoCitationLink = ({
     >
       <button
         className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-muted-foreground text-xs transition-colors hover:border-primary/30 hover:bg-primary/5 hover:text-foreground"
+        aria-label={title}
         onClick={openCitation}
+        title={title}
         type="button"
       >
         <FileCode2 className="size-3.5 shrink-0" />

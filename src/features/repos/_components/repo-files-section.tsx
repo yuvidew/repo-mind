@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import type { KeyFile } from "@/lib/analysis-types";
 import { cn } from "@/lib/utils";
 
 type RepoFilesSectionProps = {
@@ -25,6 +26,7 @@ type RepoFilesSectionProps = {
   openRequest?: RepoFileOpenRequest | null;
   repoId: string;
   repoUrl?: string;
+  suggestedFiles?: KeyFile[];
 };
 
 type RepoFileListItem = {
@@ -68,6 +70,7 @@ export const RepoFilesSection = ({
   openRequest,
   repoId,
   repoUrl,
+  suggestedFiles = [],
 }: RepoFilesSectionProps) => {
   const [files, setFiles] = useState<RepoFileListItem[]>([]);
   const [activePath, setActivePath] = useState<string | null>(null);
@@ -261,6 +264,22 @@ export const RepoFilesSection = ({
     [activePath, files],
   );
   const tree = useMemo(() => buildFileTree(filteredFiles), [filteredFiles]);
+  const readingOrder = useMemo(
+    () =>
+      suggestedFiles
+        .filter((file) => file.path && !isGeneratedReportPath(file.path))
+        .slice(0, 6),
+    [suggestedFiles],
+  );
+
+  function openSuggestedFile(file: KeyFile) {
+    setQuery("");
+    setHighlightRange({
+      endLine: file.citation?.endLine,
+      startLine: file.citation?.startLine,
+    });
+    setActivePath(file.path);
+  }
 
   async function copyToClipboard(value: string, target: CopyTarget) {
     try {
@@ -298,6 +317,47 @@ export const RepoFilesSection = ({
           </Badge>
         </div>
       </div>
+
+      {readingOrder.length > 0 ? (
+        <div className="rounded-lg border bg-background p-4 shadow-sm">
+          <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h3 className="font-medium">Suggested reading order</h3>
+              <p className="text-muted-foreground text-sm leading-6">
+                Open the generated key files directly in the source viewer.
+              </p>
+            </div>
+            <Badge variant="secondary">{readingOrder.length} files</Badge>
+          </div>
+          <div className="grid gap-2 lg:grid-cols-2">
+            {readingOrder.map((file, index) => (
+              <button
+                className={cn(
+                  "min-w-0 rounded-lg border bg-muted/15 p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5",
+                  activePath === file.path &&
+                    "border-primary/40 bg-primary/5 text-foreground",
+                )}
+                key={`${file.path}-${index}`}
+                onClick={() => openSuggestedFile(file)}
+                title={file.path}
+                type="button"
+              >
+                <div className="flex items-start gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-background font-medium text-muted-foreground text-xs">
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-sm">{file.path}</p>
+                    <p className="mt-1 line-clamp-2 text-muted-foreground text-xs leading-5">
+                      {file.purpose}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <Card className="overflow-hidden border-primary/10 bg-background p-0 shadow-sm">
         <CardContent className="grid min-h-[720px] p-0 xl:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
