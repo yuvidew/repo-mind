@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ArrowRight,
   BookOpenText,
   Bot,
   FileCode2,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/accordion";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -65,13 +67,55 @@ export const RepoReportContent = ({
     .slice(0, 2)
     .map((section) => slugify(section.title));
   const tabs = [
-    { icon: BookOpenText, label: "Overview", value: "overview" },
-    { icon: Network, label: "Diagram", value: "diagram" },
-    { icon: GitBranch, label: "Wiki", value: "wiki" },
-    { icon: FileCode2, label: "Files", value: "files" },
-    { icon: Bot, label: "Chat", value: "chat" },
-    { icon: ShieldAlert, label: "Risks", value: "risks" },
-    { icon: MessageSquareText, label: "Debug", value: "debug" },
+    {
+      description: "Summary and reading path",
+      icon: BookOpenText,
+      label: "Overview",
+      metric: `${analysis.beginnerGuide.length} steps`,
+      value: "overview",
+    },
+    {
+      description: "Interactive architecture map",
+      icon: Network,
+      label: "Diagram",
+      metric: `${analysis.diagram.nodes.length} nodes`,
+      value: "diagram",
+    },
+    {
+      description: "Generated repo notes",
+      icon: GitBranch,
+      label: "Wiki",
+      metric: `${analysis.wikiSections.length} sections`,
+      value: "wiki",
+    },
+    {
+      description: "Source viewer and citations",
+      icon: FileCode2,
+      label: "Files",
+      metric: `${analysis.repo.fileCount.toLocaleString()} files`,
+      value: "files",
+    },
+    {
+      description: "Ask grounded questions",
+      icon: Bot,
+      label: "Chat",
+      metric: "Context ready",
+      value: "chat",
+    },
+    {
+      description: "Stack and project risks",
+      icon: ShieldAlert,
+      label: "Risks",
+      metric: `${analysis.risks.length} risks`,
+      value: "risks",
+    },
+    {
+      description: "Generation metadata",
+      icon: MessageSquareText,
+      label: "Debug",
+      metric: analysis.debug.source,
+      value: "debug",
+    },
   ];
 
   useEffect(() => {
@@ -102,24 +146,38 @@ export const RepoReportContent = ({
   }, []);
 
   return (
-    <article className="min-w-0 pb-12">
+    <article className="min-w-0 space-y-6 pb-12">
+      <WorkspaceQuickStart
+        analysis={analysis}
+        onSelectTab={setActiveTab}
+        repo={repo}
+      />
+
       <Tabs className="gap-5" onValueChange={setActiveTab} value={activeTab}>
-        <div className="sticky top-3 z-20 rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
+        <div className="sticky top-3 z-20 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
           <TabsList
-            className="flex h-auto w-full flex-wrap justify-start rounded-md bg-transparent p-0"
-            variant="line"
+            className="grid !h-auto w-full grid-cols-2 items-stretch gap-1 rounded-md bg-muted/25 p-1 sm:grid-cols-3 lg:grid-cols-7"
+            aria-label="Repository workspace sections"
           >
             {tabs.map((tab) => {
               const Icon = tab.icon;
 
               return (
                 <TabsTrigger
-                  className="h-9 flex-none px-3"
+                  className="min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-center text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                   key={tab.value}
+                  title={tab.description}
                   value={tab.value}
                 >
-                  <Icon className="size-4" />
-                  {tab.label}
+                  <span className="flex min-w-0 max-w-full items-center justify-center gap-1.5">
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate font-medium text-sm">
+                      {tab.label}
+                    </span>
+                  </span>
+                  <span className="block h-6 max-w-full truncate text-muted-foreground text-xs leading-5">
+                    {tab.metric}
+                  </span>
                 </TabsTrigger>
               );
             })}
@@ -250,6 +308,7 @@ export const RepoReportContent = ({
             openRequest={fileOpenRequest}
             repoId={repoId}
             repoUrl={analysis.repo.url}
+            suggestedFiles={analysis.keyFiles}
           />
         </TabsContent>
 
@@ -288,6 +347,78 @@ export const RepoReportContent = ({
     </article>
   );
 };
+
+function WorkspaceQuickStart({
+  analysis,
+  onSelectTab,
+  repo,
+}: {
+  analysis: RepositoryAnalysis;
+  onSelectTab: (value: string) => void;
+  repo: DemoRepo;
+}) {
+  const actions = [
+    {
+      detail: `${analysis.beginnerGuide.length} guided steps`,
+      icon: BookOpenText,
+      label: "Start reading",
+      target: "overview",
+    },
+    {
+      detail: `${analysis.diagram.nodes.length} nodes, ${analysis.diagram.edges.length} edges`,
+      icon: Network,
+      label: "Explore flow",
+      target: "diagram",
+    },
+    {
+      detail: `${analysis.keyFiles.length} recommended files`,
+      icon: FileCode2,
+      label: "Inspect source",
+      target: "files",
+    },
+    {
+      detail: `${repo.owner}/${repo.name}`,
+      icon: Bot,
+      label: "Ask repo chat",
+      target: "chat",
+    },
+  ];
+
+  return (
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      {actions.map((action) => {
+        const Icon = action.icon;
+
+        return (
+          <div
+            className="group rounded-lg border bg-background p-4 shadow-sm transition-colors hover:border-primary/40"
+            key={action.label}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <span className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Icon className="size-4" />
+              </span>
+              <Button
+                className="h-8 px-2"
+                onClick={() => onSelectTab(action.target)}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                <span className="sr-only">Open {action.label}</span>
+              </Button>
+            </div>
+            <p className="font-medium text-sm">{action.label}</p>
+            <p className="mt-1 text-muted-foreground text-xs leading-5">
+              {action.detail}
+            </p>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
 
 function ReportNotice({ analysis }: { analysis: RepositoryAnalysis }) {
   const isFallback = analysis.debug.source === "fallback";

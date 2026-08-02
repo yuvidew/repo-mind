@@ -1,7 +1,19 @@
 "use client";
 
-import { Bot, Loader2, RefreshCw, Send, Square } from "lucide-react";
+import {
+  BookOpenText,
+  Bot,
+  FileCode2,
+  Loader2,
+  type LucideIcon,
+  Network,
+  RefreshCw,
+  Send,
+  ShieldAlert,
+  Square,
+} from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,10 +37,36 @@ type ChatMessage = {
 };
 
 const examplePrompts = [
-  "What does this repository do?",
-  "Which files should I read first?",
-  "Explain the architecture simply.",
-];
+  {
+    description: "Get the project purpose without reading every file.",
+    icon: BookOpenText,
+    prompt: "Summarize this repository in five bullets.",
+    title: "Summarize repo",
+  },
+  {
+    description: "Start from the files most likely to matter.",
+    icon: FileCode2,
+    prompt: "Which files should I read first and why?",
+    title: "Find entry points",
+  },
+  {
+    description: "Trace how features move through the system.",
+    icon: Network,
+    prompt: "Explain the main architecture and data flow.",
+    title: "Trace flow",
+  },
+  {
+    description: "Surface areas to verify before changing code.",
+    icon: ShieldAlert,
+    prompt: "What risks should I check before contributing?",
+    title: "Review risks",
+  },
+] satisfies Array<{
+  description: string;
+  icon: LucideIcon;
+  prompt: string;
+  title: string;
+}>;
 
 export const RepoChatPanel = ({
   layout = "side",
@@ -227,8 +265,13 @@ export const RepoChatPanel = ({
               <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Bot className="size-5" />
               </span>
-              <div className="min-w-0">
-                <h2 className="font-semibold">Repo chat</h2>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="font-semibold">Repo chat</h2>
+                  <Badge variant={isReady ? "secondary" : "outline"}>
+                    {isReady ? "Grounded" : "Locked"}
+                  </Badge>
+                </div>
                 <p className="truncate text-muted-foreground text-sm">
                   Ask about {repo.owner}/{repo.name}
                 </p>
@@ -286,29 +329,45 @@ export const RepoChatPanel = ({
                 <div ref={bottomRef} />
               </div>
             ) : (
-              <div className="flex h-full min-h-64 flex-col items-center justify-center text-center">
+              <div className="flex h-full min-h-64 flex-col justify-center text-center">
                 <div className="mb-4 flex size-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Bot className="size-6" />
                 </div>
-                <p className="font-medium">Ask about this repository</p>
-                <p className="mt-2 max-w-56 text-muted-foreground text-sm leading-6">
+                <p className="font-medium">Ask with saved repo context</p>
+                <p className="mx-auto mt-2 max-w-md text-muted-foreground text-sm leading-6">
                   Get answers from the saved analysis for {repo.owner}/
-                  {repo.name}.
+                  {repo.name}. Source citations open directly in the Files tab.
                 </p>
-                <div className="mt-4 flex flex-col gap-2">
-                  {examplePrompts.map((prompt) => (
-                    <Button
-                      className="h-auto justify-start whitespace-normal text-left"
-                      disabled={!isReady || isStreaming}
-                      key={prompt}
-                      onClick={() => sendMessage(prompt)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {prompt}
-                    </Button>
-                  ))}
+                <div className="mt-5 grid gap-2 text-left md:grid-cols-2">
+                  {examplePrompts.map((prompt) => {
+                    const Icon = prompt.icon;
+
+                    return (
+                      <Button
+                        className="h-auto min-h-24 justify-start whitespace-normal rounded-lg p-3 text-left"
+                        disabled={!isReady || isStreaming}
+                        key={prompt.title}
+                        onClick={() => sendMessage(prompt.prompt)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <span className="flex min-w-0 items-start gap-3">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                            <Icon className="size-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-medium">
+                              {prompt.title}
+                            </span>
+                            <span className="mt-1 block text-muted-foreground text-xs leading-5">
+                              {prompt.description}
+                            </span>
+                          </span>
+                        </span>
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -372,7 +431,7 @@ export const RepoChatPanel = ({
             </div>
             <p className="text-center text-muted-foreground text-xs">
               {isReady
-                ? "Answers stream from the saved repo analysis."
+                ? "Answers stream from saved repo context. Citations open in Files."
                 : "Chat unlocks when analysis is ready."}
             </p>
           </form>
