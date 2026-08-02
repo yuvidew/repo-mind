@@ -154,29 +154,29 @@ export const RepoReportContent = ({
       />
 
       <Tabs className="gap-5" onValueChange={setActiveTab} value={activeTab}>
-        <div className="sticky top-3 z-20 rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
+        <div className="sticky top-3 z-20 rounded-lg border bg-background/95 p-1.5 shadow-sm backdrop-blur">
           <TabsList
-            className="grid h-auto w-full gap-2 rounded-md bg-transparent p-0 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
-            variant="line"
+            className="grid !h-auto w-full grid-cols-2 items-stretch gap-1 rounded-md bg-muted/25 p-1 sm:grid-cols-3 lg:grid-cols-7"
+            aria-label="Repository workspace sections"
           >
             {tabs.map((tab) => {
               const Icon = tab.icon;
 
               return (
                 <TabsTrigger
-                  className="h-auto min-w-0 items-start justify-start gap-3 rounded-md border px-3 py-3 text-left data-[state=active]:border-primary/40 data-[state=active]:bg-primary/5"
+                  className="min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-2 py-2 text-center text-muted-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm"
                   key={tab.value}
                   title={tab.description}
                   value={tab.value}
                 >
-                  <Icon className="mt-0.5 size-4 shrink-0" />
-                  <span className="min-w-0">
-                    <span className="block truncate font-medium text-sm">
+                  <span className="flex min-w-0 max-w-full items-center justify-center gap-1.5">
+                    <Icon className="size-4 shrink-0" />
+                    <span className="truncate font-medium text-sm">
                       {tab.label}
                     </span>
-                    <span className="mt-1 block truncate text-muted-foreground text-xs">
-                      {tab.metric}
-                    </span>
+                  </span>
+                  <span className="block h-6 max-w-full truncate text-muted-foreground text-xs leading-5">
+                    {tab.metric}
                   </span>
                 </TabsTrigger>
               );
