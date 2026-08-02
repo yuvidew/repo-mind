@@ -1,15 +1,23 @@
 "use client";
 
 import {
+  AlertCircle,
   BookOpenText,
   Bot,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  Database,
+  ExternalLink,
   FileCode2,
   Loader2,
   type LucideIcon,
+  MessageSquareText,
   Network,
   RefreshCw,
   Send,
   ShieldAlert,
+  Sparkles,
   Square,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
@@ -20,7 +28,6 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { SourceCitation } from "@/lib/analysis-types";
 import { cn } from "@/lib/utils";
-import { RepoCitationLink } from "./repo-citation-link";
 import type { DemoRepo } from "./repo-demo-data";
 
 type RepoChatPanelProps = {
@@ -34,6 +41,16 @@ type ChatMessage = {
   id: string;
   metadataJson?: unknown;
   role: "assistant" | "user";
+};
+
+type ChatCitation = SourceCitation & {
+  chunkId?: string;
+  similarity?: number;
+};
+
+type ChatMetadata = {
+  citations: ChatCitation[];
+  model?: string;
 };
 
 const examplePrompts = [
@@ -277,6 +294,23 @@ export const RepoChatPanel = ({
                 </p>
               </div>
             </div>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">
+              <ChatContextPill
+                icon={Database}
+                label="Saved context"
+                value={isReady ? "Ready" : "Locked"}
+              />
+              <ChatContextPill
+                icon={MessageSquareText}
+                label="History"
+                value={`${messages.length.toLocaleString()} messages`}
+              />
+              <ChatContextPill
+                icon={Sparkles}
+                label="Answer mode"
+                value="Grounded"
+              />
+            </div>
           </div>
 
           <ScrollArea className="min-h-0 flex-1 overflow-hidden px-4 py-3 **:data-[slot=scroll-area-scrollbar]:w-1.5 **:data-[slot=scroll-area-thumb]:bg-muted-foreground/25 **:data-[slot=scroll-area-thumb]:hover:bg-muted-foreground/45 **:data-[slot=scroll-area-viewport]:pb-4 **:data-[slot=scroll-area-viewport]:pr-2">
@@ -288,43 +322,7 @@ export const RepoChatPanel = ({
             ) : messages.length > 0 ? (
               <div className="space-y-3 pb-1">
                 {messages.map((message) => (
-                  <div
-                    className={cn(
-                      "flex gap-2",
-                      message.role === "user" ? "justify-end" : "justify-start",
-                    )}
-                    key={message.id}
-                  >
-                    {message.role === "assistant" ? (
-                      <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <Bot className="size-4" />
-                      </span>
-                    ) : null}
-                    <div
-                      className={cn(
-                        "min-w-0 overflow-hidden rounded-lg px-3 py-2 text-sm leading-6 shadow-sm wrap-anywhere",
-                        message.role === "user"
-                          ? "max-w-[86%] bg-primary text-primary-foreground"
-                          : "max-w-[calc(100%-2.25rem)] border bg-background text-foreground",
-                      )}
-                    >
-                      {message.content ? (
-                        <>
-                          <ChatMessageContent content={message.content} />
-                          {message.role === "assistant" ? (
-                            <ChatMessageCitations
-                              metadataJson={message.metadataJson}
-                            />
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="inline-flex items-center gap-2 text-muted-foreground">
-                          <Loader2 className="size-3.5 animate-spin" />
-                          Thinking
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  <ChatMessageRow key={message.id} message={message} />
                 ))}
                 <div ref={bottomRef} />
               </div>
@@ -382,6 +380,7 @@ export const RepoChatPanel = ({
           >
             {error ? (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive text-xs">
+                <AlertCircle className="size-3.5 shrink-0" />
                 <p className="min-w-0 flex-1">{error}</p>
                 {lastFailedMessage ? (
                   <Button
@@ -441,6 +440,110 @@ export const RepoChatPanel = ({
   );
 };
 
+function ChatContextPill({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0 rounded-md border bg-background/80 px-2.5 py-2">
+      <div className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+        <Icon className="size-3.5 shrink-0" />
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="mt-1 truncate font-medium text-foreground">{value}</p>
+    </div>
+  );
+}
+
+function ChatMessageRow({ message }: { message: ChatMessage }) {
+  const metadata = normalizeChatMetadata(message.metadataJson);
+  const isAssistant = message.role === "assistant";
+
+  return (
+    <div
+      className={cn(
+        "flex gap-2",
+        message.role === "user" ? "justify-end" : "justify-start",
+      )}
+    >
+      {isAssistant ? (
+        <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+          <Bot className="size-4" />
+        </span>
+      ) : null}
+      <div
+        className={cn(
+          "min-w-0 overflow-hidden rounded-lg text-sm leading-6 shadow-sm wrap-anywhere",
+          message.role === "user"
+            ? "max-w-[86%] bg-primary px-3 py-2 text-primary-foreground"
+            : "max-w-[calc(100%-2.25rem)] border bg-background text-foreground",
+        )}
+      >
+        {isAssistant ? (
+          <AssistantMessageHeader
+            citationCount={metadata.citations.length}
+            createdAt={message.createdAt}
+            model={metadata.model}
+          />
+        ) : null}
+        <div className={cn(isAssistant ? "px-3 py-2" : "")}>
+          {message.content ? (
+            <>
+              <ChatMessageContent content={message.content} />
+              {isAssistant ? <ChatMessageSources metadata={metadata} /> : null}
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" />
+              Building grounded answer
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AssistantMessageHeader({
+  citationCount,
+  createdAt,
+  model,
+}: {
+  citationCount: number;
+  createdAt?: string;
+  model?: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-3 py-2 text-muted-foreground text-xs">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <span className="inline-flex items-center gap-1 font-medium text-foreground">
+          <CheckCircle2 className="size-3.5 text-primary" />
+          Grounded answer
+        </span>
+        {citationCount > 0 ? (
+          <Badge variant="outline">{citationCount} sources</Badge>
+        ) : (
+          <Badge variant="outline">Context only</Badge>
+        )}
+      </div>
+      <div className="flex min-w-0 items-center gap-2">
+        {model ? <span className="max-w-44 truncate">{model}</span> : null}
+        {createdAt ? (
+          <span className="inline-flex items-center gap-1">
+            <Clock3 className="size-3" />
+            {formatChatTime(createdAt)}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 async function fetchRepoChatMessages(repoId: string) {
   const response = await fetch(`/api/repos/${repoId}/chat`);
 
@@ -493,24 +596,80 @@ function stripThinkingNotice(content: string) {
   );
 }
 
-function ChatMessageCitations({ metadataJson }: { metadataJson?: unknown }) {
-  const citations = normalizeChatCitations(metadataJson);
-
-  if (citations.length === 0) return null;
+function ChatMessageSources({ metadata }: { metadata: ChatMetadata }) {
+  if (metadata.citations.length === 0) return null;
 
   return (
-    <div className="mt-3 space-y-2 border-t pt-2">
-      <p className="font-medium text-muted-foreground text-[11px] uppercase tracking-normal">
-        Sources
-      </p>
-      <div className="flex flex-wrap gap-1.5">
-        {citations.map((citation) => (
-          <RepoCitationLink
+    <div className="mt-3 space-y-2 border-t pt-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-muted-foreground text-[11px] uppercase tracking-normal">
+          Grounded sources
+        </p>
+        <span className="text-muted-foreground text-xs">
+          Open source in Files
+        </span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {metadata.citations.map((citation) => (
+          <ChatSourceCard
             citation={citation}
             key={`${citation.path}-${citation.startLine ?? ""}-${citation.endLine ?? ""}`}
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+function ChatSourceCard({ citation }: { citation: ChatCitation }) {
+  const lineLabel = formatCitationLineLabel(citation);
+  const sourceLabel = formatCitationSourceLabel(citation.source);
+
+  return (
+    <div className="flex min-w-0 items-stretch overflow-hidden rounded-md border bg-muted/10">
+      <button
+        aria-label={`${citation.path}${lineLabel ? ` ${lineLabel}` : ""} - open in Files`}
+        className="group/source min-w-0 flex-1 px-2.5 py-2 text-left transition-colors hover:bg-primary/5"
+        onClick={() => openChatCitation(citation)}
+        title={citation.path}
+        type="button"
+      >
+        <span className="flex min-w-0 items-start gap-2">
+          <FileCode2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate font-medium text-xs text-foreground">
+              {citation.path}
+            </span>
+            <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+              <span className="rounded bg-background px-1.5 py-0.5">
+                {sourceLabel}
+              </span>
+              {lineLabel ? (
+                <span className="rounded bg-background px-1.5 py-0.5">
+                  {lineLabel}
+                </span>
+              ) : null}
+              {typeof citation.similarity === "number" ? (
+                <span className="rounded bg-background px-1.5 py-0.5">
+                  {Math.round(citation.similarity * 100)}% match
+                </span>
+              ) : null}
+            </span>
+          </span>
+          <ChevronRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground transition-transform group-hover/source:translate-x-0.5" />
+        </span>
+      </button>
+      {citation.url ? (
+        <a
+          aria-label={`Open ${citation.path} externally`}
+          className="flex w-8 shrink-0 items-center justify-center border-l text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          href={citation.url}
+          rel="noreferrer"
+          target="_blank"
+        >
+          <ExternalLink className="size-3.5" />
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -666,7 +825,18 @@ function hashString(value: string) {
   return hash.toString(36);
 }
 
-function normalizeChatCitations(metadataJson: unknown): SourceCitation[] {
+function normalizeChatMetadata(metadataJson: unknown): ChatMetadata {
+  if (!metadataJson || typeof metadataJson !== "object") {
+    return { citations: [] };
+  }
+
+  return {
+    citations: normalizeChatCitations(metadataJson),
+    model: normalizeMetadataString((metadataJson as { model?: unknown }).model),
+  };
+}
+
+function normalizeChatCitations(metadataJson: unknown): ChatCitation[] {
   if (!metadataJson || typeof metadataJson !== "object") return [];
   if (!("citations" in metadataJson)) return [];
 
@@ -675,7 +845,7 @@ function normalizeChatCitations(metadataJson: unknown): SourceCitation[] {
   if (!Array.isArray(citations)) return [];
 
   const seen = new Set<string>();
-  const normalized: SourceCitation[] = [];
+  const normalized: ChatCitation[] = [];
 
   for (const citation of citations) {
     const normalizedCitation = normalizeChatCitation(citation);
@@ -697,14 +867,17 @@ function normalizeChatCitations(metadataJson: unknown): SourceCitation[] {
   return normalized.slice(0, 8);
 }
 
-function normalizeChatCitation(value: unknown): SourceCitation | null {
+function normalizeChatCitation(value: unknown): ChatCitation | null {
   if (!value || typeof value !== "object") return null;
 
   const citation = value as {
+    chunkId?: unknown;
     endLine?: unknown;
     path?: unknown;
+    similarity?: unknown;
     source?: unknown;
     startLine?: unknown;
+    url?: unknown;
   };
 
   if (typeof citation.path !== "string" || !citation.path.trim()) {
@@ -712,11 +885,24 @@ function normalizeChatCitation(value: unknown): SourceCitation | null {
   }
 
   return {
+    chunkId: normalizeMetadataString(citation.chunkId),
     endLine: normalizeLineNumber(citation.endLine),
     path: citation.path,
+    similarity: normalizeSimilarity(citation.similarity),
     source: normalizeCitationSource(citation.source),
     startLine: normalizeLineNumber(citation.startLine),
+    url: normalizeMetadataString(citation.url),
   };
+}
+
+function normalizeMetadataString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function normalizeSimilarity(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function normalizeLineNumber(value: unknown) {
@@ -734,4 +920,57 @@ function normalizeCitationSource(value: unknown): SourceCitation["source"] {
   }
 
   return "manual";
+}
+
+function openChatCitation(citation: ChatCitation) {
+  window.dispatchEvent(
+    new CustomEvent("repomind:open-file", {
+      detail: {
+        endLine: citation.endLine,
+        path: citation.path,
+        startLine: citation.startLine,
+      },
+    }),
+  );
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      document.getElementById("files")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  });
+}
+
+function formatCitationLineLabel(citation: ChatCitation) {
+  if (!citation.startLine) return "";
+
+  return citation.endLine && citation.endLine !== citation.startLine
+    ? `L${citation.startLine}-${citation.endLine}`
+    : `L${citation.startLine}`;
+}
+
+function formatCitationSourceLabel(source: SourceCitation["source"]) {
+  switch (source) {
+    case "github":
+      return "GitHub";
+    case "sampled-source":
+      return "Source";
+    case "report":
+      return "Report";
+    default:
+      return "Context";
+  }
+}
+
+function formatChatTime(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "Saved";
+
+  return new Intl.DateTimeFormat("en", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }
