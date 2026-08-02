@@ -3,15 +3,19 @@
 import {
   AlertCircle,
   Check,
+  ChevronRight,
   Clipboard,
   Code2,
   ExternalLink,
   FileCode2,
+  FileText,
   Folder,
+  FolderTree,
   Loader2,
   Search,
+  X,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +69,8 @@ type RepoFileOpenRequest = FileHighlightRange & {
 
 type CopyTarget = "code" | "path";
 
+type FileScope = "all" | "suggested" | "source" | "docs";
+
 export const RepoFilesSection = ({
   analyzedRef,
   openRequest,
@@ -76,7 +82,9 @@ export const RepoFilesSection = ({
   const [activePath, setActivePath] = useState<string | null>(null);
   const [highlightRange, setHighlightRange] =
     useState<FileHighlightRange | null>(null);
+  const [requestedPath, setRequestedPath] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<FileScope>("all");
   const [activeFile, setActiveFile] = useState<RepoFileDetail | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingFile, setIsLoadingFile] = useState(false);
@@ -212,6 +220,73 @@ export const RepoFilesSection = ({
     () => files.filter((file) => !isGeneratedReportPath(file.path)),
     [files],
   );
+  const suggestedPathSet = useMemo(
+    () =>
+      new Set(
+        suggestedFiles
+          .filter((file) => file.path && !isGeneratedReportPath(file.path))
+          .map((file) => normalizeRepoPath(file.path)),
+      ),
+    [suggestedFiles],
+  );
+
+  const scopedFiles = useMemo(() => {
+    switch (scope) {
+      case "suggested":
+        return structureFiles.filter((file) =>
+          suggestedPathSet.has(normalizeRepoPath(file.path)),
+        );
+      case "source":
+        return structureFiles.filter((file) => isSourceFile(file));
+      case "docs":
+        return structureFiles.filter((file) => isDocumentationFile(file.path));
+      default:
+        return structureFiles;
+    }
+  }, [scope, structureFiles, suggestedPathSet]);
+
+  const scopeOptions = useMemo<
+    Array<{ count: number; label: string; value: FileScope }>
+  >(
+    () => [
+      { count: structureFiles.length, label: "All", value: "all" },
+      {
+        count: structureFiles.filter((file) =>
+          suggestedPathSet.has(normalizeRepoPath(file.path)),
+        ).length,
+        label: "Key",
+        value: "suggested",
+      },
+      {
+        count: structureFiles.filter((file) => isSourceFile(file)).length,
+        label: "Source",
+        value: "source",
+      },
+      {
+        count: structureFiles.filter((file) => isDocumentationFile(file.path))
+          .length,
+        label: "Docs",
+        value: "docs",
+      },
+    ],
+    [structureFiles, suggestedPathSet],
+  );
+
+  const openResolvedFile = useCallback(
+    (path: string, range?: FileHighlightRange) => {
+      const resolvedPath = resolveRepoFilePath(path, files);
+
+      setQuery("");
+      setScope("all");
+      setRequestedPath(resolvedPath && resolvedPath !== path ? path : null);
+      setHighlightRange({
+        endLine: range?.endLine,
+        startLine: range?.startLine,
+      });
+      setActivePath(resolvedPath ?? path);
+    },
+    [files],
+  );
 
   useEffect(() => {
     const openFile = (event: Event) => {
@@ -223,12 +298,10 @@ export const RepoFilesSection = ({
 
       if (!detail.path) return;
 
-      setQuery("");
-      setHighlightRange({
+      openResolvedFile(detail.path, {
         endLine: detail.endLine,
         startLine: detail.startLine,
       });
-      setActivePath(detail.path);
     };
 
     window.addEventListener("repomind:open-file", openFile);
@@ -236,28 +309,26 @@ export const RepoFilesSection = ({
     return () => {
       window.removeEventListener("repomind:open-file", openFile);
     };
-  }, []);
+  }, [openResolvedFile]);
 
   useEffect(() => {
     if (!openRequest?.path) return;
 
-    setQuery("");
-    setHighlightRange({
+    openResolvedFile(openRequest.path, {
       endLine: openRequest.endLine,
       startLine: openRequest.startLine,
     });
-    setActivePath(openRequest.path);
-  }, [openRequest]);
+  }, [openRequest, openResolvedFile]);
 
   const filteredFiles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
-    if (!normalizedQuery) return structureFiles;
+    if (!normalizedQuery) return scopedFiles;
 
-    return structureFiles.filter((file) =>
+    return scopedFiles.filter((file) =>
       file.path.toLowerCase().includes(normalizedQuery),
     );
-  }, [structureFiles, query]);
+  }, [scopedFiles, query]);
 
   const activeListFile = useMemo(
     () => files.find((file) => file.path === activePath) ?? null,
@@ -273,12 +344,10 @@ export const RepoFilesSection = ({
   );
 
   function openSuggestedFile(file: KeyFile) {
-    setQuery("");
-    setHighlightRange({
+    openResolvedFile(file.path, {
       endLine: file.citation?.endLine,
       startLine: file.citation?.startLine,
     });
-    setActivePath(file.path);
   }
 
   async function copyToClipboard(value: string, target: CopyTarget) {
@@ -308,13 +377,14 @@ export const RepoFilesSection = ({
             ranges in the code viewer.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 text-sm sm:flex">
+        <div className="grid grid-cols-2 gap-2 text-sm sm:flex md:justify-end">
           <Badge variant="outline">
             {structureFiles.length.toLocaleString()} saved
           </Badge>
           <Badge variant="outline">
             {filteredFiles.length.toLocaleString()} visible
           </Badge>
+          {activePath ? <Badge variant="secondary">File selected</Badge> : null}
         </div>
       </div>
 
@@ -363,17 +433,67 @@ export const RepoFilesSection = ({
         <CardContent className="grid min-h-[720px] p-0 xl:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
           <aside className="border-b bg-muted/20 xl:border-r xl:border-b-0">
             <div className="space-y-3 border-b p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background text-primary">
+                    <FolderTree className="size-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm">File navigator</p>
+                    <p className="truncate text-muted-foreground text-xs">
+                      Search saved paths and key files
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="outline">
+                  {filteredFiles.length.toLocaleString()}
+                </Badge>
+              </div>
               <div className="relative">
                 <Search className="-translate-y-1/2 absolute top-1/2 left-3 size-4 text-muted-foreground" />
                 <Input
-                  className="bg-background pl-9"
+                  className="bg-background pr-9 pl-9"
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search saved files"
                   value={query}
                 />
+                {query ? (
+                  <Button
+                    aria-label="Clear file search"
+                    className="-translate-y-1/2 absolute top-1/2 right-1.5"
+                    onClick={() => setQuery("")}
+                    size="icon-xs"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                ) : null}
+              </div>
+              <div className="grid grid-cols-2 gap-1 rounded-md border bg-background p-1">
+                {scopeOptions.map((option) => (
+                  <button
+                    aria-pressed={scope === option.value}
+                    className={cn(
+                      "flex min-w-0 items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                      scope === option.value
+                        ? "bg-primary/10 font-medium text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                    disabled={option.count === 0}
+                    key={option.value}
+                    onClick={() => setScope(option.value)}
+                    type="button"
+                  >
+                    <span className="truncate">{option.label}</span>
+                    <span className="shrink-0 text-[10px]">
+                      {option.count.toLocaleString()}
+                    </span>
+                  </button>
+                ))}
               </div>
               <div className="flex items-center justify-between text-muted-foreground text-xs">
-                <span>{filteredFiles.length.toLocaleString()} visible</span>
+                <span>{scopeLabel(scope)} files</span>
                 <span>{structureFiles.length.toLocaleString()} saved</span>
               </div>
             </div>
@@ -395,6 +515,7 @@ export const RepoFilesSection = ({
                     node={tree}
                     onSelect={(path) => {
                       setHighlightRange(null);
+                      setRequestedPath(null);
                       setActivePath(path);
                     }}
                     selectedPath={activePath}
@@ -416,6 +537,7 @@ export const RepoFilesSection = ({
             highlightRange={highlightRange}
             isLoading={isLoadingFile}
             onCopy={copyToClipboard}
+            requestedPath={requestedPath}
             repoUrl={repoUrl}
           />
         </CardContent>
@@ -470,7 +592,7 @@ function FileTree({
         return (
           <button
             className={cn(
-              "flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted/70",
+              "flex w-full min-w-0 items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-muted/70",
               selectedPath === file.path &&
                 "bg-primary/10 font-medium text-primary hover:bg-primary/10",
             )}
@@ -480,8 +602,22 @@ function FileTree({
             title={file.path}
             type="button"
           >
-            <FileCode2 className="size-3.5 shrink-0" />
-            <span className="truncate">{file.path.split("/").at(-1)}</span>
+            <FileCode2 className="mt-0.5 size-3.5 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">{file.path.split("/").at(-1)}</span>
+                {file.language ? (
+                  <span className="shrink-0 rounded bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    {file.language}
+                  </span>
+                ) : null}
+              </span>
+              {selectedPath === file.path && file.summary ? (
+                <span className="mt-1 line-clamp-2 text-muted-foreground text-xs leading-5">
+                  {file.summary}
+                </span>
+              ) : null}
+            </span>
           </button>
         );
       })}
@@ -499,6 +635,7 @@ function FileViewer({
   highlightRange,
   isLoading,
   onCopy,
+  requestedPath,
   repoUrl,
 }: {
   activeFile: RepoFileDetail | null;
@@ -510,6 +647,7 @@ function FileViewer({
   highlightRange: FileHighlightRange | null;
   isLoading: boolean;
   onCopy: (value: string, target: CopyTarget) => void;
+  requestedPath: string | null;
   repoUrl?: string;
 }) {
   const displayFile = activeFile ?? activeListFile;
@@ -544,6 +682,7 @@ function FileViewer({
       <div className="space-y-3 border-b bg-muted/10 p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0 space-y-2">
+            <PathBreadcrumbs path={displayFile?.path ?? activePath} />
             <div className="flex min-w-0 items-center gap-2">
               <FileCode2 className="size-4 shrink-0 text-primary" />
               <h3 className="min-w-0 break-all font-medium text-sm">
@@ -592,6 +731,14 @@ function FileViewer({
           <p className="text-muted-foreground text-sm leading-6 wrap-anywhere">
             {displayFile.summary}
           </p>
+        ) : null}
+
+        {requestedPath && displayFile?.path !== requestedPath ? (
+          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-muted-foreground text-xs leading-5">
+            Citation path <span className="font-medium">{requestedPath}</span>{" "}
+            matched saved file{" "}
+            <span className="font-medium">{displayFile?.path}</span>.
+          </div>
         ) : null}
       </div>
 
@@ -653,6 +800,49 @@ function FileMeta({
   );
 }
 
+function PathBreadcrumbs({ path }: { path: string }) {
+  const parts = path.split("/").filter(Boolean);
+  const directories = parts
+    .slice(0, -1)
+    .reduce<Array<{ name: string; path: string }>>((items, part) => {
+      const parentPath = items.at(-1)?.path;
+
+      items.push({
+        name: part,
+        path: parentPath ? `${parentPath}/${part}` : part,
+      });
+
+      return items;
+    }, []);
+
+  if (parts.length <= 1) {
+    return <p className="text-muted-foreground text-xs">Repository root</p>;
+  }
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-1 text-muted-foreground text-xs">
+      <span>Repository</span>
+      {directories.map((directory, index) => (
+        <span
+          className="inline-flex min-w-0 items-center gap-1"
+          key={directory.path}
+        >
+          <ChevronRight className="size-3" />
+          <span className="max-w-32 truncate">{directory.name}</span>
+          {index === directories.length - 1 ? (
+            <>
+              <ChevronRight className="size-3" />
+              <span className="max-w-40 truncate text-foreground">
+                {parts.at(-1)}
+              </span>
+            </>
+          ) : null}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function CodeViewer({
   file,
   highlightRange,
@@ -661,35 +851,66 @@ function CodeViewer({
   highlightRange: FileHighlightRange | null;
 }) {
   const lines = file.content?.split(/\r?\n/) ?? [""];
+  const effectiveHighlightRange = getClampedHighlightRange(
+    highlightRange,
+    lines.length,
+  );
+  const isHighlightOutOfRange =
+    Boolean(highlightRange?.startLine) && !effectiveHighlightRange;
 
   return (
-    <div className="min-h-0 flex-1 overflow-auto bg-background font-mono text-xs leading-5">
-      <div className="min-w-max py-3">
-        {lines.map((line, index) => {
-          const lineNumber = index + 1;
-          const isHighlighted = isLineHighlighted(lineNumber, highlightRange);
+    <div className="flex min-h-0 flex-1 flex-col bg-background">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b bg-muted/10 px-4 py-2 text-muted-foreground text-xs">
+        <div className="flex items-center gap-2">
+          <FileText className="size-3.5" />
+          <span>{lines.length.toLocaleString()} lines</span>
+        </div>
+        {effectiveHighlightRange ? (
+          <Badge className="bg-primary/10 text-primary" variant="outline">
+            Highlighting lines {formatLineRange(effectiveHighlightRange)}
+          </Badge>
+        ) : null}
+      </div>
 
-          return (
-            <div
-              className={cn(
-                "grid grid-cols-[4rem_minmax(0,1fr)]",
-                isHighlighted && "bg-primary/10 text-foreground",
-              )}
-              id={getLineElementId(file.id, lineNumber)}
-              key={`${file.id}-${lineNumber}`}
-            >
-              <span
+      {isHighlightOutOfRange ? (
+        <div className="border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-amber-700 text-xs leading-5 dark:text-amber-300">
+          The cited line range is outside this saved file, so RepoMind opened
+          the file without a highlighted range.
+        </div>
+      ) : null}
+
+      <div className="min-h-0 flex-1 overflow-auto font-mono text-xs leading-5">
+        <div className="min-w-max py-3">
+          {lines.map((line, index) => {
+            const lineNumber = index + 1;
+            const isHighlighted = isLineHighlighted(
+              lineNumber,
+              effectiveHighlightRange,
+            );
+
+            return (
+              <div
                 className={cn(
-                  "select-none border-r px-3 text-right text-muted-foreground",
-                  isHighlighted && "border-primary/30 text-primary",
+                  "grid grid-cols-[4rem_minmax(0,1fr)]",
+                  isHighlighted && "bg-primary/10 text-foreground",
                 )}
+                id={getLineElementId(file.id, lineNumber)}
+                key={`${file.id}-${lineNumber}`}
               >
-                {lineNumber}
-              </span>
-              <code className="whitespace-pre px-3">{line || " "}</code>
-            </div>
-          );
-        })}
+                <span
+                  className={cn(
+                    "select-none border-r px-3 text-right text-muted-foreground",
+                    isHighlighted && "border-primary/30 text-primary",
+                  )}
+                  title={`Line ${lineNumber}`}
+                >
+                  {lineNumber}
+                </span>
+                <code className="whitespace-pre px-3">{line || " "}</code>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -776,6 +997,114 @@ function isGeneratedReportPath(path: string) {
   );
 }
 
+function isSourceFile(file: RepoFileListItem) {
+  if (file.isBinary || file.skippedReason) return false;
+  if (isDocumentationFile(file.path)) return false;
+
+  const extension = file.path.split(".").at(-1)?.toLowerCase();
+  const sourceExtensions = new Set([
+    "c",
+    "cpp",
+    "cs",
+    "css",
+    "go",
+    "html",
+    "java",
+    "js",
+    "json",
+    "jsx",
+    "kt",
+    "mjs",
+    "php",
+    "py",
+    "rs",
+    "scss",
+    "sh",
+    "sql",
+    "svelte",
+    "swift",
+    "ts",
+    "tsx",
+    "vue",
+    "yml",
+    "yaml",
+  ]);
+
+  return Boolean(
+    file.language || (extension && sourceExtensions.has(extension)),
+  );
+}
+
+function isDocumentationFile(path: string) {
+  const normalizedPath = normalizeRepoPath(path).toLowerCase();
+  const name = normalizedPath.split("/").at(-1) ?? normalizedPath;
+
+  return (
+    normalizedPath.startsWith("docs/") ||
+    normalizedPath.includes("/docs/") ||
+    name === "readme.md" ||
+    name === "license" ||
+    name === "license.md" ||
+    name === "changelog.md" ||
+    name === "contributing.md" ||
+    name.endsWith(".md") ||
+    name.endsWith(".mdx") ||
+    name.endsWith(".rst") ||
+    name.endsWith(".txt")
+  );
+}
+
+function scopeLabel(scope: FileScope) {
+  switch (scope) {
+    case "suggested":
+      return "Key";
+    case "source":
+      return "Source";
+    case "docs":
+      return "Docs";
+    default:
+      return "All";
+  }
+}
+
+function resolveRepoFilePath(path: string, files: RepoFileListItem[]) {
+  if (files.length === 0) return null;
+
+  const normalizedPath = normalizeRepoPath(path).toLowerCase();
+  const candidates = files.map((file) => ({
+    file,
+    normalized: normalizeRepoPath(file.path).toLowerCase(),
+  }));
+
+  const exactMatch = candidates.find(
+    (candidate) => candidate.normalized === normalizedPath,
+  );
+
+  if (exactMatch) return exactMatch.file.path;
+
+  const suffixMatches = candidates.filter(
+    (candidate) =>
+      candidate.normalized.endsWith(`/${normalizedPath}`) ||
+      normalizedPath.endsWith(`/${candidate.normalized}`),
+  );
+
+  if (suffixMatches.length === 1) return suffixMatches[0].file.path;
+
+  const requestedName = normalizedPath.split("/").at(-1);
+  const nameMatches = candidates.filter(
+    (candidate) => candidate.normalized.split("/").at(-1) === requestedName,
+  );
+
+  return nameMatches.length === 1 ? nameMatches[0].file.path : null;
+}
+
+function normalizeRepoPath(path: string) {
+  return path
+    .replace(/\\/g, "/")
+    .replace(/^\.?\//, "")
+    .trim();
+}
+
 function isLineHighlighted(
   lineNumber: number,
   highlightRange: FileHighlightRange | null,
@@ -784,6 +1113,18 @@ function isLineHighlighted(
 
   const endLine = highlightRange.endLine ?? highlightRange.startLine;
   return lineNumber >= highlightRange.startLine && lineNumber <= endLine;
+}
+
+function getClampedHighlightRange(
+  range: FileHighlightRange | null,
+  lineCount: number,
+): FileHighlightRange | null {
+  if (!range?.startLine || range.startLine > lineCount) return null;
+
+  return {
+    endLine: Math.min(range.endLine ?? range.startLine, lineCount),
+    startLine: Math.max(range.startLine, 1),
+  };
 }
 
 function getLineElementId(fileId: string, lineNumber: number) {
