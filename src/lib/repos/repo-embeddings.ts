@@ -1,6 +1,7 @@
 import { Embeddings } from "@langchain/core/embeddings";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import prisma from "@/lib/db";
+import { logServerWarning } from "@/lib/safe-server-log";
 import { serverConfig } from "@/lib/server-config";
 
 export const REPO_CHUNK_EMBEDDING_DIMENSIONS = 2048;
@@ -73,11 +74,11 @@ export async function tryEmbedAndPersistRepoChunks(
   try {
     return await embedAndPersistRepoChunks(chunks);
   } catch (error) {
-    console.warn(
+    logServerWarning(
       "Repo chunk embedding failed; chat will use fallback retrieval",
       {
         error:
-          error instanceof Error ? error.message : "Unknown embedding error",
+          error instanceof Error ? error : new Error("Unknown embedding error"),
       },
     );
     return [];

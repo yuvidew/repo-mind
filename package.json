@@ -11,6 +11,7 @@
     "migrate:dev": "prisma migrate dev ",
     "reset:dev": "prisma migrate reset",
     "start": "next start",
+    "test": "node --conditions=react-server --import tsx --test --test-concurrency=1 \"src/**/*.test.ts\"",
     "lint": "biome check",
     "format": "biome format --write",
     "embeddings:backfill": "tsx scripts/backfill-repo-embeddings.ts"

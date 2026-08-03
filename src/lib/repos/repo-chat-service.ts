@@ -8,6 +8,11 @@ import type {
 } from "@/generated/prisma/client";
 import type { RepositoryAnalysis } from "@/lib/analysis-types";
 import prisma from "@/lib/db";
+import {
+  buildOwnerScopedChatMessageWhere,
+  buildOwnerScopedRepoWhere,
+} from "./owner-scope";
+import { buildRepoChatMessageData } from "./repo-chat-core";
 import { type RetrievedRepoChunk, retrieveRepoChunks } from "./repo-retrieval";
 
 export type RepoChatMessageRole = "user" | "assistant";
@@ -25,14 +30,14 @@ export async function listRepoChatMessages(input: {
   userId: string;
 }) {
   const repo = await prisma.repo.findFirst({
-    where: { id: input.repoId, userId: input.userId },
+    where: buildOwnerScopedRepoWhere(input),
     select: { id: true },
   });
 
   if (!repo) return null;
 
   return prisma.chatMessage.findMany({
-    where: { repoId: input.repoId, userId: input.userId },
+    where: buildOwnerScopedChatMessageWhere(input),
     orderBy: { createdAt: "asc" },
     select: {
       content: true,
@@ -50,14 +55,14 @@ export async function getRepoChatContext(input: {
   userId: string;
 }): Promise<RepoChatContext | null> {
   const repo = await prisma.repo.findFirst({
-    where: { id: input.repoId, userId: input.userId },
+    where: buildOwnerScopedRepoWhere(input),
   });
 
   if (!repo) return null;
 
   const [history, files, chunks] = await Promise.all([
     prisma.chatMessage.findMany({
-      where: { repoId: input.repoId, userId: input.userId },
+      where: buildOwnerScopedChatMessageWhere(input),
       orderBy: { createdAt: "desc" },
       take: 12,
       select: {
@@ -100,13 +105,7 @@ export async function createRepoChatMessage(input: {
   userId: string;
 }) {
   return prisma.chatMessage.create({
-    data: {
-      content: input.content,
-      metadataJson: input.metadataJson,
-      repoId: input.repoId,
-      role: input.role,
-      userId: input.userId,
-    },
+    data: buildRepoChatMessageData(input),
     select: {
       content: true,
       createdAt: true,

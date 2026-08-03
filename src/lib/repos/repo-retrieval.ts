@@ -1,6 +1,7 @@
 import "server-only";
 
 import prisma from "@/lib/db";
+import { logServerWarning } from "@/lib/safe-server-log";
 import {
   embedRepoQuery,
   formatPgVector,
@@ -59,8 +60,10 @@ export async function retrieveRepoChunks(input: {
 
     if (chunks.length) return chunks;
   } catch (error) {
-    console.warn("Repo vector retrieval failed; using fallback retrieval", {
-      error: error instanceof Error ? error.message : "Unknown retrieval error",
+    logServerWarning("Repo vector retrieval failed; using fallback retrieval", {
+      error:
+        error instanceof Error ? error : new Error("Unknown retrieval error"),
+      repoId: input.repoId,
     });
   }
 
