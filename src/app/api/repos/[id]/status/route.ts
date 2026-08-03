@@ -1,4 +1,6 @@
 import { requireApiAuth } from "@/lib/auth-utils";
+import { GitHubRequestError } from "@/lib/repos/github";
+import { isGitHubCredentialError } from "@/lib/repos/github-credentials";
 import {
   getRepoForUser,
   refreshRepoFreshnessForUser,
@@ -22,12 +24,26 @@ export async function GET(
   const url = new URL(request.url);
   const shouldRefreshFreshness =
     url.searchParams.get("refreshFreshness") === "1";
-  const repo = shouldRefreshFreshness
-    ? await refreshRepoFreshnessForUser({
-        repoId: id,
-        userId: auth.session.user.id,
-      })
-    : await getRepoForUser({ id, userId: auth.session.user.id });
+  let repo: Awaited<ReturnType<typeof refreshRepoFreshnessForUser>>;
+
+  try {
+    repo = shouldRefreshFreshness
+      ? await refreshRepoFreshnessForUser({
+          repoId: id,
+          userId: auth.session.user.id,
+        })
+      : await getRepoForUser({ id, userId: auth.session.user.id });
+  } catch (error) {
+    if (isGitHubCredentialError(error)) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
+
+    if (error instanceof GitHubRequestError) {
+      return Response.json({ error: error.message }, { status: 502 });
+    }
+
+    throw error;
+  }
 
   if (!repo) {
     return Response.json({ error: "Repository not found." }, { status: 404 });

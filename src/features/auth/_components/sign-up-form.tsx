@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { authClient } from "@/lib/auth-client";
+import { GITHUB_REPO_ACCESS_SCOPES } from "@/lib/github-auth";
 import { cn } from "@/lib/utils";
 
 const signupSchema = z
@@ -66,6 +67,7 @@ export const SignupForm = ({
       await authClient.signIn.social(
         {
           provider: "github",
+          scopes: [...GITHUB_REPO_ACCESS_SCOPES],
         },
         {
           onSuccess: () => {

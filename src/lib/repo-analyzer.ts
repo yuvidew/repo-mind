@@ -46,6 +46,7 @@ type SampledFile = {
 };
 
 type AnalysisOptions = {
+  githubAccessToken?: string | null;
   mode?: AnalysisMode;
   onProgress?: (progress: number) => Promise<void> | void;
 };
@@ -382,7 +383,7 @@ export async function analyzeRepository(
   const mode = options.mode ?? "fast";
   const limits = ANALYSIS_LIMITS[mode];
   const { owner, repo } = parseGitHubUrl(repoUrl);
-  const githubHeaders = getGitHubHeaders();
+  const githubHeaders = getGitHubHeaders(options.githubAccessToken);
   const metadata = await getJson<GitHubRepo>(
     `https://api.github.com/repos/${owner}/${repo}`,
     githubHeaders,
@@ -517,14 +518,14 @@ function parseGitHubUrl(repoUrl: string) {
   return { owner, repo };
 }
 
-function getGitHubHeaders() {
+function getGitHubHeaders(accessToken?: string | null) {
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": "RepoMind MVP analyzer",
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  const token = process.env.GITHUB_TOKEN?.trim();
+  const token = accessToken?.trim() || process.env.GITHUB_TOKEN?.trim();
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -856,11 +857,15 @@ async function fetchRawFile(input: {
   limits: AnalysisLimits;
   file: GitHubTreeItem;
 }): Promise<SampledFile | null> {
-  const rawUrl = `https://raw.githubusercontent.com/${input.owner}/${input.repo}/${encodePath(input.branch)}/${encodePath(input.file.path)}`;
-  const response = await fetchGitHub(rawUrl, input.headers);
+  const rawUrl = `https://api.github.com/repos/${input.owner}/${input.repo}/contents/${encodePath(input.file.path)}?ref=${encodeURIComponent(input.branch)}`;
+  const rawHeaders = {
+    ...input.headers,
+    Accept: "application/vnd.github.raw",
+  };
+  const response = await fetchGitHub(rawUrl, rawHeaders);
   const finalResponse = await retryWithoutGitHubAuthOnBadCredentials(
     rawUrl,
-    input.headers,
+    rawHeaders,
     response,
   );
 

@@ -4,10 +4,11 @@ import {
   queueRepoAnalysis,
 } from "@/inngest/queue";
 import { requireApiAuth } from "@/lib/auth-utils";
+import { isGitHubCredentialError } from "@/lib/repos/github-credentials";
 import {
-  getRepoForUser,
   markRepoFailed,
   resetRepoAnalysis,
+  verifyRepoGitHubAccessForUser,
 } from "@/lib/repos/repo-service";
 
 export const runtime = "nodejs";
@@ -32,7 +33,20 @@ export async function POST(
   }
 
   const { id } = await params;
-  const repo = await getRepoForUser({ id, userId: auth.session.user.id });
+  let repo: Awaited<ReturnType<typeof verifyRepoGitHubAccessForUser>>;
+
+  try {
+    repo = await verifyRepoGitHubAccessForUser({
+      repoId: id,
+      userId: auth.session.user.id,
+    });
+  } catch (error) {
+    if (isGitHubCredentialError(error)) {
+      return Response.json({ error: error.message }, { status: error.status });
+    }
+
+    throw error;
+  }
 
   if (!repo) {
     return Response.json({ error: "Repository not found." }, { status: 404 });

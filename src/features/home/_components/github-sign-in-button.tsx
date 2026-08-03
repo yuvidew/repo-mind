@@ -6,6 +6,7 @@ import { type ComponentProps, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
+import { GITHUB_REPO_ACCESS_SCOPES } from "@/lib/github-auth";
 
 type GithubSignInButtonProps = ComponentProps<typeof Button>;
 
@@ -23,7 +24,7 @@ export const GithubSignInButton = ({
 
     try {
       await authClient.signIn.social(
-        { provider: "github" },
+        { provider: "github", scopes: [...GITHUB_REPO_ACCESS_SCOPES] },
         {
           onSuccess: () => {
             router.refresh();
