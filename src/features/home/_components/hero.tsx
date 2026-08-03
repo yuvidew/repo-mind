@@ -44,7 +44,7 @@ export const Hero = () => {
   return (
     <section className="border-b bg-background">
       <div className="mx-auto flex min-h-[calc(100svh-3.5rem)] w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="w-full overflow-hidden rounded-lg border bg-card shadow-sm">
+        <div className="w-full overflow-hidden rounded-lg">
           <div className="relative min-w-0 overflow-hidden bg-background">
             <div
               aria-hidden="true"
