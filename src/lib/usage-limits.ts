@@ -1,45 +1,18 @@
 import "server-only";
 
-import type { UsageEventType } from "@/generated/prisma/client";
 import prisma from "@/lib/db";
-import { PublicAppError } from "@/lib/public-errors";
 import { serverConfig } from "@/lib/server-config";
-
-const USAGE_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-type UsageLimitAction = UsageEventType;
-
-type UsageLimitInput = {
-  repoId?: string;
-  type: UsageLimitAction;
-  userId: string;
-};
+import {
+  buildUsageLimitError,
+  getUsageLimitForAction,
+  getUsageResetAtFromOldest,
+  getUsageWindowResetAt,
+  getUsageWindowStart,
+  type UsageLimitAction,
+  type UsageLimitInput,
+} from "@/lib/usage-limit-core";
 
 type UsageEventClient = Pick<typeof prisma, "usageEvent">;
-
-export class UsageLimitError extends PublicAppError {
-  limit: number;
-  remaining: number;
-  resetAt: Date;
-
-  constructor(input: {
-    code: string;
-    limit: number;
-    message: string;
-    remaining: number;
-    resetAt: Date;
-  }) {
-    super({
-      code: input.code,
-      message: input.message,
-      status: 429,
-    });
-    this.name = "UsageLimitError";
-    this.limit = input.limit;
-    this.remaining = input.remaining;
-    this.resetAt = input.resetAt;
-  }
-}
 
 export async function assertUsageAvailable(input: UsageLimitInput) {
   const limit = getUsageLimit(input.type);
@@ -115,19 +88,7 @@ export async function consumeUsage(input: UsageLimitInput) {
 }
 
 function getUsageLimit(type: UsageLimitAction) {
-  if (type === "CHAT_MESSAGE") {
-    return serverConfig.usageLimits.dailyChatMessages;
-  }
-
-  return serverConfig.usageLimits.dailyRepoAnalyses;
-}
-
-function getUsageWindowStart() {
-  return new Date(Date.now() - USAGE_WINDOW_MS);
-}
-
-function getUsageWindowResetAt() {
-  return new Date(Date.now() + USAGE_WINDOW_MS);
+  return getUsageLimitForAction(type, serverConfig.usageLimits);
 }
 
 async function getUsageResetAt(
@@ -145,30 +106,5 @@ async function getUsageResetAt(
     },
   });
 
-  return new Date(
-    (oldestEvent?.createdAt.getTime() ?? Date.now()) + USAGE_WINDOW_MS,
-  );
-}
-
-function buildUsageLimitError(
-  type: UsageLimitAction,
-  input: { limit: number; resetAt: Date },
-) {
-  if (type === "CHAT_MESSAGE") {
-    return new UsageLimitError({
-      code: "daily-chat-limit-reached",
-      limit: input.limit,
-      message: `Daily repo chat limit reached. Try again after ${input.resetAt.toUTCString()}.`,
-      remaining: 0,
-      resetAt: input.resetAt,
-    });
-  }
-
-  return new UsageLimitError({
-    code: "daily-analysis-limit-reached",
-    limit: input.limit,
-    message: `Daily repository analysis limit reached. Try again after ${input.resetAt.toUTCString()}.`,
-    remaining: 0,
-    resetAt: input.resetAt,
-  });
+  return getUsageResetAtFromOldest(oldestEvent?.createdAt);
 }

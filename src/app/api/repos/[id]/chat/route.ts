@@ -5,11 +5,13 @@ import {
   createRepoChatStream,
   getRepoChatModel,
 } from "@/lib/repos/repo-chat-ai";
+import { buildRepoChatResponseMetadata } from "@/lib/repos/repo-chat-core";
 import {
   createRepoChatMessage,
   getRepoChatContext,
   listRepoChatMessages,
 } from "@/lib/repos/repo-chat-service";
+import { logServerError } from "@/lib/safe-server-log";
 import { consumeUsage } from "@/lib/usage-limits";
 
 export const runtime = "nodejs";
@@ -116,10 +118,12 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
     });
   } catch (error) {
     clearTimeout(timeout);
-    console.error("Unable to start repo chat stream", {
-      error: error instanceof Error ? error.message : "Unknown chat error",
+    logServerError("Unable to start repo chat stream", {
+      error: error instanceof Error ? error : new Error("Unknown chat error"),
       model: getRepoChatModel(),
+      repoId: id,
       timedOut: didTimeout,
+      userId: auth.session.user.id,
     });
     return Response.json(
       {
@@ -169,23 +173,23 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
         try {
           await createRepoChatMessage({
             content: assistantContent,
-            metadataJson: {
-              citations: context.chunks.map((chunk) => ({
-                chunkId: chunk.id,
-                endLine: chunk.endLine,
-                path: chunk.path,
-                similarity: chunk.similarity,
-                source: chunk.source,
-                startLine: chunk.startLine,
-              })),
+            metadataJson: buildRepoChatResponseMetadata({
+              chunks: context.chunks,
               model: getRepoChatModel(),
-            },
+            }),
             repoId: id,
             role: "assistant",
             userId: auth.session.user.id,
           });
         } catch (error) {
-          console.error("Unable to persist repo chat response", error);
+          logServerError("Unable to persist repo chat response", {
+            error:
+              error instanceof Error
+                ? error
+                : new Error("Unknown chat persistence error"),
+            repoId: id,
+            userId: auth.session.user.id,
+          });
         }
       }
     },
