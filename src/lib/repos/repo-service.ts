@@ -8,6 +8,7 @@ import type {
 } from "@/lib/analysis-types";
 import prisma from "@/lib/db";
 import { GITHUB_RECONNECT_MESSAGE } from "@/lib/github-auth";
+import { isPublicAppError, PublicAppError } from "@/lib/public-errors";
 import { analyzeRepository } from "@/lib/repo-analyzer";
 import {
   fetchGitHubBranchCommitSha,
@@ -50,20 +51,30 @@ export async function createRepoForUser(input: CreateRepoInput) {
   const parsed = parseGitHubRepoUrl(input.url);
 
   if (!parsed) {
-    throw new Error("Enter a valid GitHub repository URL.");
+    throw new PublicAppError({
+      code: "invalid-github-url",
+      message: "Enter a valid GitHub repository URL.",
+      status: 400,
+    });
   }
 
   const credential = await getGitHubAccessTokenForUser(input.userId);
   const metadata = await fetchGitHubRepoMetadata(parsed.owner, parsed.name, {
     accessToken: credential.token,
   }).catch((error) => {
-    throw new Error(getCreateRepoGitHubErrorMessage(error, credential));
+    throw new PublicAppError({
+      code: "github-repository-unavailable",
+      message: getCreateRepoGitHubErrorMessage(error, credential),
+      status: getCreateRepoGitHubErrorStatus(error),
+    });
   });
 
   if (metadata.private && !credential.hasRepoScope) {
-    throw new Error(
-      `Your GitHub connection does not include private repository access. ${GITHUB_RECONNECT_MESSAGE}`,
-    );
+    throw new PublicAppError({
+      code: "github-token-scope-missing",
+      message: `Your GitHub connection does not include private repository access. ${GITHUB_RECONNECT_MESSAGE}`,
+      status: 403,
+    });
   }
 
   const repo = await prisma.repo.upsert({
@@ -456,14 +467,20 @@ function getCreateRepoGitHubErrorMessage(
   return error.message;
 }
 
+function getCreateRepoGitHubErrorStatus(error: unknown) {
+  if (!(error instanceof GitHubRequestError)) return 400;
+
+  if (error.status === 401 || error.status === 403) return 403;
+  if (error.status === 404) return 404;
+
+  return 502;
+}
+
 export async function markRepoFailed(input: {
   error: unknown;
   repoId: string;
 }) {
-  const message =
-    input.error instanceof Error
-      ? input.error.message
-      : "Unable to analyze this repository.";
+  const message = getRepoFailureMessage(input.error);
 
   await prisma.repo.update({
     where: { id: input.repoId },
@@ -473,6 +490,22 @@ export async function markRepoFailed(input: {
       status: "FAILED",
     },
   });
+}
+
+function getRepoFailureMessage(error: unknown) {
+  if (isPublicAppError(error)) return error.message;
+  if (error instanceof GitHubRequestError) return error.message;
+
+  if (error instanceof Error) {
+    if (
+      error.message === "Repository not found." ||
+      error.message.startsWith("Repository saved, but")
+    ) {
+      return error.message;
+    }
+  }
+
+  return "Analysis failed before RepoMind could finish. Retry in a moment; if it keeps happening, check GitHub access and model configuration.";
 }
 
 export async function persistRepoAnalysis(input: {

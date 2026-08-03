@@ -4,12 +4,14 @@ import {
   queueRepoAnalysis,
 } from "@/inngest/queue";
 import { requireApiAuth } from "@/lib/auth-utils";
+import { toApiErrorResponse } from "@/lib/public-errors";
 import { isGitHubCredentialError } from "@/lib/repos/github-credentials";
 import {
   markRepoFailed,
   resetRepoAnalysis,
   verifyRepoGitHubAccessForUser,
 } from "@/lib/repos/repo-service";
+import { assertUsageAvailable, recordUsageEvent } from "@/lib/usage-limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -53,6 +55,19 @@ export async function POST(
   }
 
   const body = reanalyzeSchema.parse(await request.json().catch(() => ({})));
+
+  try {
+    await assertUsageAvailable({
+      repoId: repo.id,
+      type: "REPO_ANALYSIS",
+      userId: auth.session.user.id,
+    });
+  } catch (error) {
+    return toApiErrorResponse(error, {
+      fallbackMessage: "Unable to restart analysis.",
+    });
+  }
+
   const updatedRepo = await resetRepoAnalysis({
     mode: body.mode,
     repoId: repo.id,
@@ -71,6 +86,12 @@ export async function POST(
 
     return Response.json({ error: message }, { status: 503 });
   }
+
+  await recordUsageEvent({
+    repoId: repo.id,
+    type: "REPO_ANALYSIS",
+    userId: auth.session.user.id,
+  });
 
   return Response.json({ id: repo.id, status: updatedRepo.status });
 }

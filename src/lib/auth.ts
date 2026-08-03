@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { GITHUB_REPO_ACCESS_SCOPES } from "@/lib/github-auth";
+import { serverConfig } from "@/lib/server-config";
 import prisma from "./db";
 
 export const auth = betterAuth({
@@ -25,8 +26,8 @@ export const auth = betterAuth({
   },
   socialProviders: {
     github: {
-      clientId: process.env.GITHUB_CLIENT_ID as string,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET as string,
+      clientId: serverConfig.auth.githubClientId as string,
+      clientSecret: serverConfig.auth.githubClientSecret as string,
       scope: [...GITHUB_REPO_ACCESS_SCOPES],
     },
   },

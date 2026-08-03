@@ -1,3 +1,5 @@
+import { serverConfig } from "@/lib/server-config";
+
 type GitHubRepoMetadata = {
   default_branch: string;
   description: string | null;
@@ -122,7 +124,7 @@ function getGitHubHeaders(
   accessToken?: string | null,
   overrides: Record<string, string> = {},
 ) {
-  const token = accessToken?.trim() || process.env.GITHUB_TOKEN?.trim();
+  const token = accessToken?.trim() || serverConfig.github.token;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "User-Agent": "RepoMind",

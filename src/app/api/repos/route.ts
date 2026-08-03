@@ -4,7 +4,9 @@ import {
   queueRepoAnalysis,
 } from "@/inngest/queue";
 import { requireApiAuth } from "@/lib/auth-utils";
+import { toApiErrorResponse } from "@/lib/public-errors";
 import { createRepoForUser, markRepoFailed } from "@/lib/repos/repo-service";
+import { assertUsageAvailable, recordUsageEvent } from "@/lib/usage-limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -22,16 +24,31 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = createRepoSchema.parse(await request.json());
+    const body = createRepoSchema.safeParse(
+      await request.json().catch(() => null),
+    );
+
+    if (!body.success) {
+      return Response.json(
+        { error: "Enter a GitHub repository URL to analyze." },
+        { status: 400 },
+      );
+    }
+
+    await assertUsageAvailable({
+      type: "REPO_ANALYSIS",
+      userId: auth.session.user.id,
+    });
+
     const repo = await createRepoForUser({
-      mode: body.mode,
-      url: body.url,
+      mode: body.data.mode,
+      url: body.data.url,
       userId: auth.session.user.id,
     });
 
     try {
       await queueRepoAnalysis({
-        mode: body.mode,
+        mode: body.data.mode,
         repoId: repo.id,
         userId: auth.session.user.id,
       });
@@ -46,10 +63,17 @@ export async function POST(request: Request) {
       });
     }
 
+    await recordUsageEvent({
+      repoId: repo.id,
+      type: "REPO_ANALYSIS",
+      userId: auth.session.user.id,
+    });
+
     return Response.json({ id: repo.id, status: repo.status });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to create repository.";
-    return Response.json({ error: message }, { status: 400 });
+    return toApiErrorResponse(error, {
+      fallbackMessage: "Unable to create repository.",
+      fallbackStatus: 400,
+    });
   }
 }

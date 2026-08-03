@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireApiAuth } from "@/lib/auth-utils";
+import { isPublicAppError, toApiErrorResponse } from "@/lib/public-errors";
 import {
   createRepoChatStream,
   getRepoChatModel,
@@ -9,6 +10,7 @@ import {
   getRepoChatContext,
   listRepoChatMessages,
 } from "@/lib/repos/repo-chat-service";
+import { consumeUsage } from "@/lib/usage-limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -77,6 +79,18 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
       { error: "Repository analysis must be ready before chatting." },
       { status: 409 },
     );
+  }
+
+  try {
+    await consumeUsage({
+      repoId: id,
+      type: "CHAT_MESSAGE",
+      userId: auth.session.user.id,
+    });
+  } catch (error) {
+    return toApiErrorResponse(error, {
+      fallbackMessage: "Unable to send this message.",
+    });
   }
 
   await createRepoChatMessage({
@@ -187,12 +201,16 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
 }
 
 function formatChatStreamError(error: unknown, timedOut = false) {
+  if (isPublicAppError(error)) {
+    return error.message;
+  }
+
   if (timedOut || isAbortLikeError(error)) {
     return "The chat model did not start responding before the server timeout. Try again in a moment, or configure CHAT_MODEL to a faster NVIDIA-hosted model.";
   }
 
   if (error instanceof Error) {
-    return `Repo chat stopped before finishing: ${error.message}`;
+    return "Repo chat stopped before finishing because the AI provider did not return a complete response. Try again in a moment.";
   }
 
   return "Repo chat stopped before finishing. Try again in a moment.";

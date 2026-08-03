@@ -1,10 +1,11 @@
 import { Inngest } from "inngest";
+import { serverConfig } from "@/lib/server-config";
 
-const isInngestDev = process.env.NODE_ENV !== "production";
+const isInngestDev = !serverConfig.isProduction;
 
 export const inngest = new Inngest({
   id: "repomind",
   isDev: isInngestDev,
-  eventKey: process.env.INNGEST_EVENT_KEY,
+  eventKey: serverConfig.inngest.eventKey,
   baseUrl: isInngestDev ? "http://localhost:8288" : undefined,
 });
