@@ -1,4 +1,5 @@
 import type { AnalysisMode } from "@/lib/analysis-types";
+import { serverConfig } from "@/lib/server-config";
 import { inngest } from "./client";
 
 export const REPO_ANALYZE_REQUESTED = "repo/analyze.requested" as const;
@@ -25,7 +26,7 @@ export function queueRepoAnalysis(input: {
 }
 
 export function getRepoAnalysisQueueErrorMessage() {
-  if (process.env.NODE_ENV === "development") {
+  if (serverConfig.isDevelopment) {
     return "Repository saved, but the background analyzer could not start. Run npm run inngest:dev in another terminal, then retry analysis.";
   }
 

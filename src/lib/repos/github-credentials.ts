@@ -4,6 +4,7 @@ import { decryptOAuthToken, setTokenUtil } from "better-auth/oauth2";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { GITHUB_RECONNECT_MESSAGE } from "@/lib/github-auth";
+import { PublicAppError } from "@/lib/public-errors";
 
 type GitHubCredentialErrorCode =
   | "github-account-missing"
@@ -20,15 +21,10 @@ type GitHubAccessTokenResult = {
 type OAuthTokenContext = Parameters<typeof setTokenUtil>[1] &
   Parameters<typeof decryptOAuthToken>[1];
 
-export class GitHubCredentialError extends Error {
-  code: GitHubCredentialErrorCode;
-  status: number;
-
+export class GitHubCredentialError extends PublicAppError {
   constructor(code: GitHubCredentialErrorCode, message: string) {
-    super(message);
+    super({ code, message, status: 403 });
     this.name = "GitHubCredentialError";
-    this.code = code;
-    this.status = 403;
   }
 }
 

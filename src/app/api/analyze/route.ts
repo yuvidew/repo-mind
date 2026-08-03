@@ -1,13 +1,15 @@
 import type { AnalysisMode } from "@/lib/analysis-types";
+import { toApiErrorResponse } from "@/lib/public-errors";
 import { analyzeRepository } from "@/lib/repo-analyzer";
 import { parseGitHubRepoUrl } from "@/lib/repos/repo-url";
+import { serverConfig } from "@/lib/server-config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV === "production") {
+  if (serverConfig.isProduction) {
     return Response.json(
       { error: "Direct analysis is disabled in production." },
       { status: 404 },
@@ -39,10 +41,8 @@ export async function POST(request: Request) {
     const analysis = await analyzeRepository(url, { mode });
     return Response.json(analysis);
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Unable to analyze this repository.";
-    return Response.json({ error: message }, { status: 500 });
+    return toApiErrorResponse(error, {
+      fallbackMessage: "Unable to analyze this repository.",
+    });
   }
 }

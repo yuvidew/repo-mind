@@ -2,28 +2,29 @@ import "server-only";
 
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import { PublicAppError } from "@/lib/public-errors";
+import { serverConfig } from "@/lib/server-config";
 import type { RepoChatContext } from "./repo-chat-service";
-
-export const DEFAULT_REPO_CHAT_MODEL = "openai/gpt-oss-20b";
 
 export function createRepoChatStream(input: {
   context: RepoChatContext;
   question: string;
   signal?: AbortSignal;
 }) {
-  const apiKey = process.env.NVIDIA_API_KEY?.trim();
+  const apiKey = serverConfig.ai.nvidiaApiKey;
 
   if (!apiKey) {
-    throw new Error(
-      "Repo chat is not available right now. Ask the project owner to enable AI chat.",
-    );
+    throw new PublicAppError({
+      code: "chat-model-not-configured",
+      message:
+        "Repo chat is not available right now. Ask the project owner to enable AI chat.",
+      status: 503,
+    });
   }
 
   const openai = new OpenAI({
     apiKey,
-    baseURL:
-      process.env.NVIDIA_BASE_URL?.trim() ??
-      "https://integrate.api.nvidia.com/v1",
+    baseURL: serverConfig.ai.nvidiaBaseUrl,
   });
 
   return openai.chat.completions.create(
@@ -40,7 +41,7 @@ export function createRepoChatStream(input: {
 }
 
 export function getRepoChatModel() {
-  return process.env.CHAT_MODEL?.trim() || DEFAULT_REPO_CHAT_MODEL;
+  return serverConfig.ai.chatModel;
 }
 
 function buildMessages(input: {

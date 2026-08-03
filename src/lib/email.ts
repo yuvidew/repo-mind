@@ -1,6 +1,7 @@
 import "server-only";
 
 import { Resend } from "resend";
+import { serverConfig } from "./server-config";
 
 type SendPasswordResetEmailInput = {
   to: string;
@@ -21,13 +22,14 @@ export const sendPasswordResetEmail = async ({
   name,
   url,
 }: SendPasswordResetEmailInput) => {
-  const from = process.env.RESEND_FROM_EMAIL;
+  const from = serverConfig.email.resendFromEmail;
+  const apiKey = serverConfig.email.resendApiKey;
 
-  if (!process.env.RESEND_API_KEY || !from) {
+  if (!apiKey || !from) {
     throw new Error("Missing Resend password reset email configuration.");
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const resend = new Resend(apiKey);
 
   const displayName = name?.trim() || "there";
   const escapedName = escapeHtml(displayName);

@@ -7,6 +7,8 @@ import type {
   RepositoryAnalysis,
   SourceCitation,
 } from "@/lib/analysis-types";
+import { PublicAppError } from "@/lib/public-errors";
+import { serverConfig } from "@/lib/server-config";
 
 type GitHubRepo = {
   name: string;
@@ -82,12 +84,12 @@ const ANALYSIS_LIMITS: Record<AnalysisMode, AnalysisLimits> = {
 const GITHUB_CACHE_SECONDS = 15 * 60;
 const GITHUB_FETCH_TIMEOUT_MS = 8_000;
 const RAW_FETCH_CONCURRENCY = 8;
-const GITHUB_CACHE_OPTION: RequestCache =
-  process.env.NODE_ENV === "development" ? "no-store" : "force-cache";
-const GITHUB_NEXT_OPTIONS =
-  process.env.NODE_ENV === "development"
-    ? undefined
-    : { revalidate: GITHUB_CACHE_SECONDS };
+const GITHUB_CACHE_OPTION: RequestCache = serverConfig.isDevelopment
+  ? "no-store"
+  : "force-cache";
+const GITHUB_NEXT_OPTIONS = serverConfig.isDevelopment
+  ? undefined
+  : { revalidate: GITHUB_CACHE_SECONDS };
 
 const SKIP_DIRS = new Set([
   ".git",
@@ -475,7 +477,7 @@ export async function analyzeRepository(
     debug: {
       source: analysisSource,
       provider: "NVIDIA API",
-      model: process.env.DEEPSEEK_MODEL ?? "deepseek-ai/deepseek-v4-pro",
+      model: serverConfig.ai.reportModel,
       selectedFiles: sampledFiles.map((file) => file.path),
       sampledFiles,
       detectedStack,
@@ -525,7 +527,7 @@ function getGitHubHeaders(accessToken?: string | null) {
     "X-GitHub-Api-Version": "2022-11-28",
   };
 
-  const token = accessToken?.trim() || process.env.GITHUB_TOKEN?.trim();
+  const token = accessToken?.trim() || serverConfig.github.token;
 
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -914,18 +916,20 @@ async function runDeepSeekAnalysis(input: {
   limits: AnalysisLimits;
   detectedStack: string[];
 }) {
-  const apiKey = process.env.NVIDIA_API_KEY;
+  const apiKey = serverConfig.ai.nvidiaApiKey;
 
   if (!apiKey) {
-    throw new Error(
-      "AI analysis is not configured yet. Ask the project owner to enable it.",
-    );
+    throw new PublicAppError({
+      code: "analysis-model-not-configured",
+      message:
+        "AI analysis is not configured yet. Ask the project owner to enable it.",
+      status: 503,
+    });
   }
 
   const openai = new OpenAI({
     apiKey,
-    baseURL:
-      process.env.NVIDIA_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
+    baseURL: serverConfig.ai.nvidiaBaseUrl,
   });
   const abortController = new AbortController();
   const timeout = setTimeout(
@@ -936,7 +940,7 @@ async function runDeepSeekAnalysis(input: {
   try {
     const completion = await openai.chat.completions.create(
       {
-        model: process.env.DEEPSEEK_MODEL ?? "deepseek-ai/deepseek-v4-pro",
+        model: serverConfig.ai.reportModel,
         messages: [
           {
             role: "system",

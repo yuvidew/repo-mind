@@ -1,6 +1,7 @@
 import { Embeddings } from "@langchain/core/embeddings";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import prisma from "@/lib/db";
+import { serverConfig } from "@/lib/server-config";
 
 export const REPO_CHUNK_EMBEDDING_DIMENSIONS = 2048;
 
@@ -109,20 +110,14 @@ function createEmbeddingsClient() {
 }
 
 function getEmbeddingConfig() {
-  const apiKey =
-    process.env.EMBEDDING_API_KEY ??
-    process.env.OPENAI_API_KEY ??
-    process.env.NVIDIA_API_KEY;
-  const model = process.env.EMBEDDING_MODEL;
+  const apiKey = serverConfig.ai.embeddingApiKey;
+  const model = serverConfig.ai.embeddingModel;
 
   if (!(apiKey && model)) return null;
 
   return {
     apiKey,
-    baseURL:
-      process.env.EMBEDDING_BASE_URL ??
-      process.env.OPENAI_BASE_URL ??
-      process.env.NVIDIA_BASE_URL,
+    baseURL: serverConfig.ai.embeddingBaseUrl,
     model,
   };
 }

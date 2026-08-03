@@ -13,19 +13,25 @@ datasource db {
 }
 
 model User {
-  id            String    @id
-  email         String    @unique
+  id            String        @id
+  email         String        @unique
   name          String?
-  emailVerified Boolean   @default(false)
+  emailVerified Boolean       @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   sessions      Session[]
   accounts      Account[]
   repos         Repo[]
   chatMessages  ChatMessage[]
+  usageEvents   UsageEvent[]
 
   @@map("user")
+}
+
+enum UsageEventType {
+  REPO_ANALYSIS
+  CHAT_MESSAGE
 }
 
 enum RepoStatus {
@@ -38,38 +44,39 @@ enum RepoStatus {
 }
 
 model Repo {
-  id                    String      @id @default(cuid())
+  id                    String        @id @default(cuid())
   userId                String
-  user                  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   url                   String
   owner                 String
   name                  String
   branch                String
-  visibility            String      @default("Public")
+  visibility            String        @default("Public")
   description           String?
   language              String?
-  status                RepoStatus  @default(PENDING)
-  progress              Int         @default(0)
+  status                RepoStatus    @default(PENDING)
+  progress              Int           @default(0)
   errorMsg              String?
-  fileCount             Int         @default(0)
-  totalBytes            Int         @default(0)
+  fileCount             Int           @default(0)
+  totalBytes            Int           @default(0)
   reportJson            Json?
   graphJson             Json?
-  analysisMode          String      @default("fast")
+  analysisMode          String        @default("fast")
   analysisProvider      String?
   analysisModel         String?
-  analysisPromptVersion String      @default("v1")
+  analysisPromptVersion String        @default("v1")
   analyzedCommitSha     String?
   latestCommitSha       String?
-  freshnessStatus       String      @default("unknown")
+  freshnessStatus       String        @default("unknown")
   lastFreshnessCheckAt  DateTime?
   selectedFilesJson     Json?
   lastAnalyzedAt        DateTime?
-  createdAt             DateTime    @default(now())
-  updatedAt             DateTime    @updatedAt
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
   files                 File[]
   chunks                RepoChunk[]
   chatMessages          ChatMessage[]
+  usageEvents           UsageEvent[]
 
   @@unique([userId, owner, name, branch])
   @@index([userId, status])
@@ -97,23 +104,37 @@ model File {
 }
 
 model RepoChunk {
-  id            String   @id @default(cuid())
+  id            String                       @id @default(cuid())
   repoId        String
-  repo          Repo     @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repo          Repo                         @relation(fields: [repoId], references: [id], onDelete: Cascade)
   fileId        String?
-  file          File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  file          File?                        @relation(fields: [fileId], references: [id], onDelete: SetNull)
   path          String
   startLine     Int?
   endLine       Int?
   content       String
-  tokenEstimate Int      @default(0)
-  source        String   @default("analysis")
+  tokenEstimate Int                          @default(0)
+  source        String                       @default("analysis")
   embedding     Unsupported("vector(2048)")?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime                     @default(now())
 
   @@index([repoId])
   @@index([fileId])
   @@index([repoId, path])
+}
+
+model UsageEvent {
+  id           String         @id @default(cuid())
+  userId       String
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  repoId       String?
+  repo         Repo?          @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  type         UsageEventType
+  metadataJson Json?
+  createdAt    DateTime       @default(now())
+
+  @@index([userId, type, createdAt])
+  @@index([repoId, type, createdAt])
 }
 
 model ChatMessage {
