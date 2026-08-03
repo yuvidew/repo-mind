@@ -7,12 +7,19 @@ import type {
   RepositoryAnalysis,
 } from "@/lib/analysis-types";
 import prisma from "@/lib/db";
+import { GITHUB_RECONNECT_MESSAGE } from "@/lib/github-auth";
 import { analyzeRepository } from "@/lib/repo-analyzer";
 import {
   fetchGitHubBranchCommitSha,
   fetchGitHubRawFile,
   fetchGitHubRepoMetadata,
+  GitHubRequestError,
 } from "./github";
+import {
+  getGitHubAccessTokenForUser,
+  isGitHubCredentialError,
+  requireGitHubAccessTokenForPrivateRepo,
+} from "./github-credentials";
 import { tryEmbedAndPersistRepoChunks } from "./repo-embeddings";
 import { parseGitHubRepoUrl } from "./repo-url";
 
@@ -46,7 +53,19 @@ export async function createRepoForUser(input: CreateRepoInput) {
     throw new Error("Enter a valid GitHub repository URL.");
   }
 
-  const metadata = await fetchGitHubRepoMetadata(parsed.owner, parsed.name);
+  const credential = await getGitHubAccessTokenForUser(input.userId);
+  const metadata = await fetchGitHubRepoMetadata(parsed.owner, parsed.name, {
+    accessToken: credential.token,
+  }).catch((error) => {
+    throw new Error(getCreateRepoGitHubErrorMessage(error, credential));
+  });
+
+  if (metadata.private && !credential.hasRepoScope) {
+    throw new Error(
+      `Your GitHub connection does not include private repository access. ${GITHUB_RECONNECT_MESSAGE}`,
+    );
+  }
+
   const repo = await prisma.repo.upsert({
     where: {
       userId_owner_name_branch: {
@@ -174,6 +193,10 @@ export async function getRepoFileWithLazyContentForUser(input: {
   }
 
   const content = await fetchGitHubRawFile({
+    accessToken: await getGitHubTokenForRepoRequest({
+      userId: input.userId,
+      visibility: repo.visibility,
+    }),
     branch: repo.analyzedCommitSha ?? repo.branch,
     name: repo.name,
     owner: repo.owner,
@@ -228,7 +251,12 @@ export async function refreshRepoFreshnessForUser(input: {
 
   if (!repo) return null;
 
+  const accessToken = await getGitHubTokenForRepoRequest({
+    userId: input.userId,
+    visibility: repo.visibility,
+  });
   const latestCommitSha = await fetchGitHubBranchCommitSha({
+    accessToken,
     branch: repo.branch,
     name: repo.name,
     owner: repo.owner,
@@ -277,6 +305,22 @@ export async function resetRepoAnalysis(input: {
       status: "PENDING",
     },
   });
+}
+
+export async function verifyRepoGitHubAccessForUser(input: {
+  repoId: string;
+  userId: string;
+}) {
+  const repo = await getRepoForUser({ id: input.repoId, userId: input.userId });
+
+  if (!repo) return null;
+
+  await getGitHubTokenForRepoRequest({
+    userId: input.userId,
+    visibility: repo.visibility,
+  });
+
+  return repo;
 }
 
 export async function analyzeAndPersistRepo(input: {
@@ -342,7 +386,13 @@ export async function runRepoAnalysis(input: {
     throw new Error("Repository not found.");
   }
 
+  const accessToken = await getGitHubTokenForRepoRequest({
+    userId: input.userId,
+    visibility: repo.visibility,
+  });
+
   return analyzeRepository(repo.url, {
+    githubAccessToken: accessToken,
     mode: input.mode,
     onProgress: async (progress) => {
       await markRepoProgress({
@@ -352,6 +402,58 @@ export async function runRepoAnalysis(input: {
       });
     },
   });
+}
+
+async function getGitHubTokenForRepoRequest(input: {
+  userId: string;
+  visibility: string;
+}) {
+  if (input.visibility === "Private") {
+    return requireGitHubAccessTokenForPrivateRepo(input.userId);
+  }
+
+  try {
+    return (await getGitHubAccessTokenForUser(input.userId)).token;
+  } catch (error) {
+    if (isGitHubCredentialError(error)) return null;
+
+    throw error;
+  }
+}
+
+function getCreateRepoGitHubErrorMessage(
+  error: unknown,
+  credential: { hasRepoScope: boolean; token: string | null },
+) {
+  if (!(error instanceof GitHubRequestError)) {
+    return error instanceof Error
+      ? error.message
+      : "Unable to read this GitHub repository.";
+  }
+
+  if (error.status === 401) {
+    return `GitHub rejected the saved access token. ${GITHUB_RECONNECT_MESSAGE}`;
+  }
+
+  if (error.status === 403) {
+    return credential.token
+      ? `GitHub denied access to this repository. ${GITHUB_RECONNECT_MESSAGE}`
+      : "GitHub denied access to this repository. Public API rate limits may be exhausted, or the repository requires GitHub sign-in.";
+  }
+
+  if (error.status === 404) {
+    if (!credential.token) {
+      return `Repository not found. If this is a private repository, sign in with GitHub first. ${GITHUB_RECONNECT_MESSAGE}`;
+    }
+
+    if (!credential.hasRepoScope) {
+      return `Repository not found or private access is missing. ${GITHUB_RECONNECT_MESSAGE}`;
+    }
+
+    return "Repository not found, or your GitHub account does not have access to it.";
+  }
+
+  return error.message;
 }
 
 export async function markRepoFailed(input: {

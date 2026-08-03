@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { requireApiAuth } from "@/lib/auth-utils";
+import { isGitHubCredentialError } from "@/lib/repos/github-credentials";
 import {
   getRepoFileWithLazyContentForUser,
   listRepoFilesForUser,
@@ -31,11 +32,24 @@ export async function GET(request: Request, { params }: RepoFilesRouteContext) {
       return Response.json({ error: "Invalid file path." }, { status: 400 });
     }
 
-    const file = await getRepoFileWithLazyContentForUser({
-      path: parsedPath.data,
-      repoId: id,
-      userId: auth.session.user.id,
-    });
+    let file: Awaited<ReturnType<typeof getRepoFileWithLazyContentForUser>>;
+
+    try {
+      file = await getRepoFileWithLazyContentForUser({
+        path: parsedPath.data,
+        repoId: id,
+        userId: auth.session.user.id,
+      });
+    } catch (error) {
+      if (isGitHubCredentialError(error)) {
+        return Response.json(
+          { error: error.message },
+          { status: error.status },
+        );
+      }
+
+      throw error;
+    }
 
     if (!file) {
       return Response.json({ error: "File not found." }, { status: 404 });
