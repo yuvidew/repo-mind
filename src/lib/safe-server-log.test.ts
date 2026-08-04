@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
-import { sanitizeLogMetadata } from "./safe-server-log";
+import { logServerInfo, sanitizeLogMetadata } from "./safe-server-log";
 
 describe("safe server log metadata", () => {
   test("converts errors to safe name and message metadata", () => {
@@ -26,5 +26,32 @@ describe("safe server log metadata", () => {
     assert.deepEqual(Object.keys(metadata), ["message"]);
     assert.equal((metadata.message as string).length, 503);
     assert.equal((metadata.message as string).endsWith("..."), true);
+  });
+
+  test("writes info logs with sanitized metadata", () => {
+    const originalInfo = console.info;
+    const calls: unknown[][] = [];
+
+    console.info = (...args: unknown[]) => {
+      calls.push(args);
+    };
+
+    try {
+      logServerInfo("Repo chat timing", {
+        elapsedMs: 123,
+        skipped: undefined,
+      });
+    } finally {
+      console.info = originalInfo;
+    }
+
+    assert.deepEqual(calls, [
+      [
+        "Repo chat timing",
+        {
+          elapsedMs: 123,
+        },
+      ],
+    ]);
   });
 });

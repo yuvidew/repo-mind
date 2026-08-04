@@ -8,6 +8,10 @@ export function logServerError(event: string, metadata: SafeLogMetadata = {}) {
   console.error(event, sanitizeLogMetadata(metadata));
 }
 
+export function logServerInfo(event: string, metadata: SafeLogMetadata = {}) {
+  console.info(event, sanitizeLogMetadata(metadata));
+}
+
 export function logServerWarning(
   event: string,
   metadata: SafeLogMetadata = {},

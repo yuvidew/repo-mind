@@ -7,21 +7,33 @@ import {
 } from "@/lib/repos/repo-chat-ai";
 import { buildRepoChatResponseMetadata } from "@/lib/repos/repo-chat-core";
 import {
+  buildRepoChatFallbackAnswer,
+  type RepoChatFallbackReason,
+} from "@/lib/repos/repo-chat-fallback";
+import {
   createRepoChatMessage,
   getRepoChatContext,
   listRepoChatMessages,
+  type RepoChatContext,
 } from "@/lib/repos/repo-chat-service";
-import { logServerError } from "@/lib/safe-server-log";
+import {
+  logServerError,
+  logServerInfo,
+  logServerWarning,
+} from "@/lib/safe-server-log";
 import { consumeUsage } from "@/lib/usage-limits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const CHAT_TIMEOUT_MS = 50_000;
+const CHAT_COMPLETION_TIMEOUT_MS = 55_000;
+const CHAT_FIRST_TOKEN_TIMEOUT_MS = 25_000;
 
 type RepoChatRouteContext = {
   params: Promise<{ id: string }>;
 };
+
+type ChatTimeoutReason = "completion" | "first-token" | null;
 
 const chatMessageSchema = z.object({
   message: z.string().trim().min(1).max(2000),
@@ -48,6 +60,7 @@ export async function GET(request: Request, { params }: RepoChatRouteContext) {
 }
 
 export async function POST(request: Request, { params }: RepoChatRouteContext) {
+  const requestStartedAt = Date.now();
   const auth = await requireApiAuth(request);
 
   if (auth.error) {
@@ -66,6 +79,7 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
   }
 
   const { id } = await params;
+  const contextStartedAt = Date.now();
   const context = await getRepoChatContext({
     question: body.data.message,
     repoId: id,
@@ -82,6 +96,16 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
       { status: 409 },
     );
   }
+
+  logServerInfo("Repo chat context loaded", {
+    chunkCount: context.chunks.length,
+    contextLoadedMs: Date.now() - contextStartedAt,
+    fileCount: context.files.length,
+    historyCount: context.history.length,
+    model: getRepoChatModel(),
+    repoId: id,
+    userId: auth.session.user.id,
+  });
 
   try {
     await consumeUsage({
@@ -103,12 +127,37 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
   });
 
   const abortController = new AbortController();
-  let didTimeout = false;
-  const timeout = setTimeout(() => {
-    didTimeout = true;
-    abortController.abort();
-  }, CHAT_TIMEOUT_MS);
+  const modelStartedAt = Date.now();
+  let timeoutReason: ChatTimeoutReason = null;
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  const clearChatTimeout = () => {
+    if (!timeout) return;
+
+    clearTimeout(timeout);
+    timeout = null;
+  };
+  const scheduleChatTimeout = (
+    reason: Exclude<ChatTimeoutReason, null>,
+    timeoutMs: number,
+  ) => {
+    clearChatTimeout();
+    timeout = setTimeout(
+      () => {
+        timeoutReason = reason;
+        abortController.abort();
+      },
+      Math.max(1, timeoutMs),
+    );
+  };
   let completion: Awaited<ReturnType<typeof createRepoChatStream>>;
+
+  scheduleChatTimeout("first-token", CHAT_FIRST_TOKEN_TIMEOUT_MS);
+  logServerInfo("Repo chat model request started", {
+    model: getRepoChatModel(),
+    repoId: id,
+    totalElapsedMs: Date.now() - requestStartedAt,
+    userId: auth.session.user.id,
+  });
 
   try {
     completion = await createRepoChatStream({
@@ -116,24 +165,46 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
       question: body.data.message,
       signal: abortController.signal,
     });
+    logServerInfo("Repo chat model stream opened", {
+      model: getRepoChatModel(),
+      modelOpenMs: Date.now() - modelStartedAt,
+      repoId: id,
+      totalElapsedMs: Date.now() - requestStartedAt,
+      userId: auth.session.user.id,
+    });
   } catch (error) {
-    clearTimeout(timeout);
+    clearChatTimeout();
+    if (shouldUseFallbackAnswer(error, timeoutReason)) {
+      return createFallbackChatResponse({
+        context,
+        model: getRepoChatModel(),
+        question: body.data.message,
+        reason: "model-timeout",
+        repoId: id,
+        requestStartedAt,
+        userId: auth.session.user.id,
+      });
+    }
+
     logServerError("Unable to start repo chat stream", {
       error: error instanceof Error ? error : new Error("Unknown chat error"),
       model: getRepoChatModel(),
       repoId: id,
-      timedOut: didTimeout,
+      timedOut: Boolean(timeoutReason),
+      timeoutReason: timeoutReason ?? undefined,
       userId: auth.session.user.id,
     });
     return Response.json(
       {
-        error: formatChatStreamError(error, didTimeout),
+        error: formatChatStreamError(error, Boolean(timeoutReason)),
       },
       { status: 503 },
     );
   }
 
   let assistantContent = "";
+  let assistantFallbackReason: RepoChatFallbackReason | undefined;
+  let didReceiveFirstToken = false;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -149,22 +220,79 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
 
           if (!content) continue;
 
+          if (!didReceiveFirstToken) {
+            didReceiveFirstToken = true;
+            logServerInfo("Repo chat first token received", {
+              firstTokenMs: Date.now() - modelStartedAt,
+              model: getRepoChatModel(),
+              repoId: id,
+              totalElapsedMs: Date.now() - requestStartedAt,
+              userId: auth.session.user.id,
+            });
+            scheduleChatTimeout(
+              "completion",
+              CHAT_COMPLETION_TIMEOUT_MS - (Date.now() - requestStartedAt),
+            );
+          }
+
           assistantContent += content;
           controller.enqueue(encoder.encode(content));
         }
-      } catch (error) {
-        const errorMessage = formatChatStreamError(
-          error,
-          didTimeout || abortController.signal.aborted,
-        );
-        const fallback = assistantContent.trim()
-          ? `\n\n${errorMessage}`
-          : errorMessage;
 
-        assistantContent += fallback;
-        controller.enqueue(encoder.encode(fallback));
+        if (!assistantContent.trim()) {
+          assistantFallbackReason = "model-timeout";
+          const fallback = buildRepoChatFallbackAnswer({
+            context,
+            question: body.data.message,
+            reason: assistantFallbackReason,
+          });
+
+          logServerWarning("Repo chat fallback used", {
+            fallbackReason: assistantFallbackReason,
+            model: getRepoChatModel(),
+            repoId: id,
+            totalElapsedMs: Date.now() - requestStartedAt,
+            userId: auth.session.user.id,
+          });
+
+          assistantContent = fallback;
+          controller.enqueue(encoder.encode(fallback));
+        }
+      } catch (error) {
+        if (
+          !assistantContent.trim() &&
+          shouldUseFallbackAnswer(error, timeoutReason)
+        ) {
+          assistantFallbackReason = "model-timeout";
+          const fallback = buildRepoChatFallbackAnswer({
+            context,
+            question: body.data.message,
+            reason: assistantFallbackReason,
+          });
+
+          logServerWarning("Repo chat fallback used", {
+            fallbackReason: assistantFallbackReason,
+            model: getRepoChatModel(),
+            repoId: id,
+            totalElapsedMs: Date.now() - requestStartedAt,
+            userId: auth.session.user.id,
+          });
+
+          assistantContent = fallback;
+          controller.enqueue(encoder.encode(fallback));
+        } else {
+          const errorMessage = assistantContent.trim()
+            ? "\n\nRepo chat stopped before finishing. Retry for a fuller answer."
+            : formatChatStreamError(
+                error,
+                Boolean(timeoutReason) || abortController.signal.aborted,
+              );
+
+          assistantContent += errorMessage;
+          controller.enqueue(encoder.encode(errorMessage));
+        }
       } finally {
-        clearTimeout(timeout);
+        clearChatTimeout();
       }
 
       controller.close();
@@ -175,6 +303,7 @@ export async function POST(request: Request, { params }: RepoChatRouteContext) {
             content: assistantContent,
             metadataJson: buildRepoChatResponseMetadata({
               chunks: context.chunks,
+              fallbackReason: assistantFallbackReason,
               model: getRepoChatModel(),
             }),
             repoId: id,
@@ -210,7 +339,7 @@ function formatChatStreamError(error: unknown, timedOut = false) {
   }
 
   if (timedOut || isAbortLikeError(error)) {
-    return "The chat model did not start responding before the server timeout. Try again in a moment, or configure CHAT_MODEL to a faster NVIDIA-hosted model.";
+    return "Repo chat could not get a model response in time. Retry in a moment, or ask the project owner to use a faster chat model.";
   }
 
   if (error instanceof Error) {
@@ -218,6 +347,77 @@ function formatChatStreamError(error: unknown, timedOut = false) {
   }
 
   return "Repo chat stopped before finishing. Try again in a moment.";
+}
+
+function createFallbackChatResponse(input: {
+  context: RepoChatContext;
+  model: string;
+  question: string;
+  reason: RepoChatFallbackReason;
+  repoId: string;
+  requestStartedAt: number;
+  userId: string;
+}) {
+  const assistantContent = buildRepoChatFallbackAnswer({
+    context: input.context,
+    question: input.question,
+    reason: input.reason,
+  });
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      controller.enqueue(encoder.encode(assistantContent));
+      controller.close();
+
+      logServerWarning("Repo chat fallback used", {
+        fallbackReason: input.reason,
+        model: input.model,
+        repoId: input.repoId,
+        totalElapsedMs: Date.now() - input.requestStartedAt,
+        userId: input.userId,
+      });
+
+      try {
+        await createRepoChatMessage({
+          content: assistantContent,
+          metadataJson: buildRepoChatResponseMetadata({
+            chunks: input.context.chunks,
+            fallbackReason: input.reason,
+            model: input.model,
+          }),
+          repoId: input.repoId,
+          role: "assistant",
+          userId: input.userId,
+        });
+      } catch (error) {
+        logServerError("Unable to persist repo chat fallback response", {
+          error:
+            error instanceof Error
+              ? error
+              : new Error("Unknown chat fallback persistence error"),
+          repoId: input.repoId,
+          userId: input.userId,
+        });
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Cache-Control": "no-cache, no-transform",
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
+}
+
+function shouldUseFallbackAnswer(
+  error: unknown,
+  timeoutReason: ChatTimeoutReason,
+) {
+  if (isPublicAppError(error)) return false;
+
+  return Boolean(timeoutReason) || isAbortLikeError(error);
 }
 
 function isAbortLikeError(error: unknown) {
