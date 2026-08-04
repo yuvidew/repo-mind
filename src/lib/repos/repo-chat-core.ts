@@ -29,6 +29,7 @@ export function buildRepoChatMessageData<TMetadata>(
 
 export function buildRepoChatResponseMetadata(input: {
   chunks: RepoChatCitationChunk[];
+  fallbackReason?: string;
   model: string;
 }) {
   return {
@@ -40,6 +41,8 @@ export function buildRepoChatResponseMetadata(input: {
       source: chunk.source,
       startLine: chunk.startLine,
     })),
+    fallbackReason: input.fallbackReason,
+    isFallback: Boolean(input.fallbackReason),
     model: input.model,
   };
 }

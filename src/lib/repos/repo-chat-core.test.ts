@@ -51,6 +51,24 @@ describe("repo chat core helpers", () => {
             startLine: 4,
           },
         ],
+        fallbackReason: undefined,
+        isFallback: false,
+        model: "openai/gpt-oss-20b",
+      },
+    );
+  });
+
+  test("marks fallback metadata when a deterministic answer is used", () => {
+    assert.deepEqual(
+      buildRepoChatResponseMetadata({
+        chunks: [],
+        fallbackReason: "model-timeout",
+        model: "openai/gpt-oss-20b",
+      }),
+      {
+        citations: [],
+        fallbackReason: "model-timeout",
+        isFallback: true,
         model: "openai/gpt-oss-20b",
       },
     );
