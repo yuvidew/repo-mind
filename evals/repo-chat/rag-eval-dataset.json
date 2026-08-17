@@ -1,0 +1,1130 @@
+{
+  "version": "2026-08-17",
+  "name": "RepoMind Repo Chat RAG Eval Dataset",
+  "description": "One hundred evaluation questions for measuring RepoMind repo-chat retrieval, grounded answer quality, citation support, hallucination resistance, and refusal quality.",
+  "judgeDimensions": [
+    "retrieval_relevance",
+    "answer_correctness",
+    "faithfulness",
+    "citation_support",
+    "completeness",
+    "refusal_quality"
+  ],
+  "items": [
+    {
+      "id": "RM-001",
+      "repo": "RepoMind",
+      "category": "overview",
+      "question": "What does this project do?",
+      "expectedJudgeCheck": "Must explain GitHub repo analysis, report, files, diagram, and chat.",
+      "expectedSources": [],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-002",
+      "repo": "RepoMind",
+      "category": "overview",
+      "question": "Who is the main user of this app?",
+      "expectedJudgeCheck": "Must identify developers reading or understanding unfamiliar repositories.",
+      "expectedSources": [],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-003",
+      "repo": "RepoMind",
+      "category": "overview",
+      "question": "What problem does RepoMind solve?",
+      "expectedJudgeCheck": "Must mention codebase understanding, guided repo workspaces, and AI-assisted repo reading.",
+      "expectedSources": [],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-004",
+      "repo": "RepoMind",
+      "category": "architecture",
+      "question": "Explain the high-level architecture.",
+      "expectedJudgeCheck": "Must mention Next.js app, API routes, Prisma/Postgres, Inngest jobs, and AI provider integration when supported by retrieved context.",
+      "expectedSources": [
+        "src/app",
+        "src/lib/db.ts",
+        "prisma/schema.prisma",
+        "src/lib/repo-analyzer.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-005",
+      "repo": "RepoMind",
+      "category": "architecture",
+      "question": "How does data move from repo URL submission to final report?",
+      "expectedJudgeCheck": "Must trace submit URL, API validation, repo persistence, background analysis, analyzer output, and saved report data.",
+      "expectedSources": [
+        "src/app/api/repos/route.ts",
+        "src/lib/repos/repo-service.ts",
+        "src/lib/repo-analyzer.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-006",
+      "repo": "RepoMind",
+      "category": "architecture",
+      "question": "Which parts are frontend and which are backend?",
+      "expectedJudgeCheck": "Must separate React feature components from route handlers, Prisma services, and server-side analyzer code.",
+      "expectedSources": [
+        "src/features",
+        "src/app/api",
+        "src/lib"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-007",
+      "repo": "RepoMind",
+      "category": "auth",
+      "question": "How is user ownership enforced?",
+      "expectedJudgeCheck": "Must mention auth guards and owner-scoped Prisma query helpers.",
+      "expectedSources": [
+        "src/lib/auth-utils.ts",
+        "src/lib/repos/owner-scope.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-008",
+      "repo": "RepoMind",
+      "category": "auth",
+      "question": "Can one user read another user's repo chat?",
+      "expectedJudgeCheck": "Must answer no when owner-scoped repo and chat-message checks are working; must cite ownership checks.",
+      "expectedSources": [
+        "src/lib/repos/owner-scope.ts",
+        "src/lib/repos/repo-chat-service.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-009",
+      "repo": "RepoMind",
+      "category": "auth",
+      "question": "What auth provider does the app use?",
+      "expectedJudgeCheck": "Must mention Better Auth and GitHub or email/password auth only if visible in retrieved context.",
+      "expectedSources": [
+        "src/lib/auth.ts",
+        "prisma/schema.prisma"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-010",
+      "repo": "RepoMind",
+      "category": "database",
+      "question": "What are the main database models?",
+      "expectedJudgeCheck": "Must include User, Repo, File, RepoChunk, ChatMessage, and related Better Auth tables if context includes them.",
+      "expectedSources": [
+        "prisma/schema.prisma"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-011",
+      "repo": "RepoMind",
+      "category": "database",
+      "question": "Where are chat messages persisted?",
+      "expectedJudgeCheck": "Must identify the ChatMessage model/table and createRepoChatMessage service path.",
+      "expectedSources": [
+        "prisma/schema.prisma",
+        "src/lib/repos/repo-chat-service.ts"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-012",
+      "repo": "RepoMind",
+      "category": "database",
+      "question": "Where are embeddings stored?",
+      "expectedJudgeCheck": "Must identify RepoChunk.embedding as a vector column and mention RepoChunk rows.",
+      "expectedSources": [
+        "prisma/schema.prisma",
+        "src/lib/repos/repo-embeddings.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-013",
+      "repo": "RepoMind",
+      "category": "rag-retrieval",
+      "question": "How does repo chat retrieve context?",
+      "expectedJudgeCheck": "Must mention vector retrieval from RepoChunk embeddings and keyword fallback retrieval.",
+      "expectedSources": [
+        "src/lib/repos/repo-retrieval.ts",
+        "src/lib/repos/repo-embeddings.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-014",
+      "repo": "RepoMind",
+      "category": "rag-retrieval",
+      "question": "What happens if embeddings are not configured?",
+      "expectedJudgeCheck": "Must mention keyword fallback retrieval and avoid saying chat is completely unavailable.",
+      "expectedSources": [
+        "src/lib/repos/repo-retrieval.ts",
+        "src/lib/server-config.ts"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "RM-015",
+      "repo": "RepoMind",
+      "category": "rag-retrieval",
+      "question": "What is the default retrieval limit?",
+      "expectedJudgeCheck": "Must identify the default retrieved chunk count if the retrieval constants are available.",
+      "expectedSources": [
+        "src/lib/repos/repo-retrieval.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-016",
+      "repo": "RepoMind",
+      "category": "rag-generation",
+      "question": "What context is included in the chat prompt?",
+      "expectedJudgeCheck": "Must mention report summary, plain English explanation, architecture, data flow, key files, retrieved chunks, wiki sections, and chat history when supported.",
+      "expectedSources": [
+        "src/lib/repos/repo-chat-prompt.ts",
+        "src/lib/repos/repo-chat-service.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-017",
+      "repo": "RepoMind",
+      "category": "rag-generation",
+      "question": "How does RepoMind reduce prompt size?",
+      "expectedJudgeCheck": "Must mention prompt limits, truncation, limited chunks, limited wiki sections, and limited history.",
+      "expectedSources": [
+        "src/lib/repos/repo-chat-prompt.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-018",
+      "repo": "RepoMind",
+      "category": "rag-citation",
+      "question": "How are citations stored for chat answers?",
+      "expectedJudgeCheck": "Must mention assistant metadataJson citations from retrieved chunks.",
+      "expectedSources": [
+        "src/lib/repos/repo-chat-core.ts",
+        "src/app/api/repos/[id]/chat/route.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-019",
+      "repo": "RepoMind",
+      "category": "rag-citation",
+      "question": "Are citations verified against every answer claim?",
+      "expectedJudgeCheck": "Must say current citations are retrieved context metadata and are not claim-level verified unless code evidence says otherwise.",
+      "expectedSources": [
+        "src/lib/repos/repo-chat-core.ts",
+        "src/features/repos/_components/repo-chat-panel.tsx"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "id": "RM-020",
+      "repo": "RepoMind",
+      "category": "reliability",
+      "question": "What happens when the chat model times out?",
+      "expectedJudgeCheck": "Must mention deterministic saved-context fallback and fallback metadata.",
+      "expectedSources": [
+        "src/app/api/repos/[id]/chat/route.ts",
+        "src/lib/repos/repo-chat-fallback.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-021",
+      "repo": "RepoMind",
+      "category": "reliability",
+      "question": "What timeout stages exist in repo chat?",
+      "expectedJudgeCheck": "Must mention first-token timeout and completion timeout if route context is retrieved.",
+      "expectedSources": [
+        "src/app/api/repos/[id]/chat/route.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-022",
+      "repo": "RepoMind",
+      "category": "reliability",
+      "question": "Does the app save raw timeout errors as assistant messages?",
+      "expectedJudgeCheck": "Must say timeout fallback answers are persisted with fallback metadata instead of raw timeout text.",
+      "expectedSources": [
+        "src/app/api/repos/[id]/chat/route.ts",
+        "src/lib/repos/repo-chat-core.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-023",
+      "repo": "RepoMind",
+      "category": "observability",
+      "question": "What chat timing logs exist?",
+      "expectedJudgeCheck": "Must mention context loaded, model request started, stream opened, first token, and fallback warning logs when visible.",
+      "expectedSources": [
+        "src/app/api/repos/[id]/chat/route.ts",
+        "src/lib/safe-server-log.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-024",
+      "repo": "RepoMind",
+      "category": "config",
+      "question": "Which env vars affect chat and embeddings?",
+      "expectedJudgeCheck": "Must mention NVIDIA_API_KEY, NVIDIA_BASE_URL, CHAT_MODEL, EMBEDDING_API_KEY, EMBEDDING_MODEL, and EMBEDDING_BASE_URL when visible.",
+      "expectedSources": [
+        "src/lib/server-config.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-025",
+      "repo": "RepoMind",
+      "category": "limits",
+      "question": "Are repo chat messages rate limited?",
+      "expectedJudgeCheck": "Must mention CHAT_MESSAGE usage events and daily chat limit logic.",
+      "expectedSources": [
+        "src/lib/usage-limits.ts",
+        "src/lib/usage-limit-core.ts",
+        "src/app/api/repos/[id]/chat/route.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-026",
+      "repo": "RepoMind",
+      "category": "analysis",
+      "question": "What does the analyzer save after scanning?",
+      "expectedJudgeCheck": "Must mention files, chunks, reportJson, graphJson, selected files, and repo status updates when visible.",
+      "expectedSources": [
+        "src/lib/repos/repo-service.ts",
+        "src/lib/repo-analyzer.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-027",
+      "repo": "RepoMind",
+      "category": "analysis",
+      "question": "What is fast vs deep analysis?",
+      "expectedJudgeCheck": "Must explain mode differences only when evidence supports them and avoid unsupported claims.",
+      "expectedSources": [
+        "src/lib/repos/repo-service.ts",
+        "src/lib/repo-analyzer.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-028",
+      "repo": "RepoMind",
+      "category": "analysis",
+      "question": "What does freshness status mean?",
+      "expectedJudgeCheck": "Must mention analyzed commit, latest commit, and freshness check status.",
+      "expectedSources": [
+        "src/lib/repos/repo-service.ts",
+        "prisma/schema.prisma"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-029",
+      "repo": "RepoMind",
+      "category": "files",
+      "question": "How does the Files tab help citations?",
+      "expectedJudgeCheck": "Must mention opening cited files or source paths in the Files workspace.",
+      "expectedSources": [
+        "src/features/repos/_components/repo-chat-panel.tsx",
+        "src/features/repos/_components/repo-report-content.tsx"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "RM-030",
+      "repo": "RepoMind",
+      "category": "negative",
+      "question": "Does RepoMind currently support perfect private repo token security?",
+      "expectedJudgeCheck": "Must avoid claiming complete support unless encrypted token storage is visible; should mention token security gap if context supports it.",
+      "expectedSources": [
+        "src/lib/repos/github.ts",
+        "src/lib/auth.ts"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "id": "IMG-001",
+      "repo": "yuvidew/ImgSeek",
+      "category": "overview",
+      "question": "What does this repo do?",
+      "expectedJudgeCheck": "Must mention image search with CLIP, FAISS, and text query if supported by retrieved context.",
+      "expectedSources": [
+        "README.md",
+        "clip_model.py",
+        "search_text.py"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "IMG-002",
+      "repo": "yuvidew/ImgSeek",
+      "category": "architecture",
+      "question": "Explain the main pipeline.",
+      "expectedJudgeCheck": "Must mention image feature extraction, embedding/index creation, and search/query flow when supported.",
+      "expectedSources": [
+        "build_image_features.py",
+        "clip_model.py",
+        "search_text.py"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "IMG-003",
+      "repo": "yuvidew/ImgSeek",
+      "category": "file-specific",
+      "question": "What is clip_model.py responsible for?",
+      "expectedJudgeCheck": "Must explain the CLIP model or embedding role and avoid unrelated architecture claims.",
+      "expectedSources": [
+        "clip_model.py"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "IMG-004",
+      "repo": "yuvidew/ImgSeek",
+      "category": "file-specific",
+      "question": "What is build_image_features.py used for?",
+      "expectedJudgeCheck": "Must mention precomputing or building image embeddings/features if supported.",
+      "expectedSources": [
+        "build_image_features.py"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "IMG-005",
+      "repo": "yuvidew/ImgSeek",
+      "category": "file-specific",
+      "question": "What is search_text.py likely doing?",
+      "expectedJudgeCheck": "Must mention text query embedding/search only if retrieved context supports it; unsupported internals should be qualified.",
+      "expectedSources": [
+        "search_text.py"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "IMG-006",
+      "repo": "yuvidew/ImgSeek",
+      "category": "file-specific",
+      "question": "What role does app.py play?",
+      "expectedJudgeCheck": "Must describe app/API entry behavior only if app.py is retrieved.",
+      "expectedSources": [
+        "app.py"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "IMG-007",
+      "repo": "yuvidew/ImgSeek",
+      "category": "dependency",
+      "question": "Which technologies power similarity search?",
+      "expectedJudgeCheck": "Must mention CLIP and FAISS when evidence is retrieved.",
+      "expectedSources": [
+        "README.md",
+        "clip_model.py"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "IMG-008",
+      "repo": "yuvidew/ImgSeek",
+      "category": "database",
+      "question": "Does this repo use PostgreSQL?",
+      "expectedJudgeCheck": "Must answer based on retrieved evidence and avoid guessing.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "IMG-009",
+      "repo": "yuvidew/ImgSeek",
+      "category": "citation",
+      "question": "Which files prove the image search workflow?",
+      "expectedJudgeCheck": "Must cite README and relevant source files, not only report sections.",
+      "expectedSources": [
+        "README.md",
+        "clip_model.py",
+        "build_image_features.py",
+        "search_text.py"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "IMG-010",
+      "repo": "yuvidew/ImgSeek",
+      "category": "negative",
+      "question": "Does this repo implement user authentication?",
+      "expectedJudgeCheck": "Must say not visible or insufficient evidence if auth files are not retrieved.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-001",
+      "repo": "yuvidew/roomify.ai",
+      "category": "overview",
+      "question": "What kind of app is this?",
+      "expectedJudgeCheck": "Must identify the app type and Next.js web-app nature only when supported by evidence.",
+      "expectedSources": [
+        "package.json",
+        "src/app/layout.tsx"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "ROOM-002",
+      "repo": "yuvidew/roomify.ai",
+      "category": "architecture",
+      "question": "Where should a beginner start reading?",
+      "expectedJudgeCheck": "Must cite app entry and key feature files when visible.",
+      "expectedSources": [
+        "src/app/layout.tsx",
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-003",
+      "repo": "yuvidew/roomify.ai",
+      "category": "frontend",
+      "question": "How is the UI organized?",
+      "expectedJudgeCheck": "Must cite app router, components, or feature folders if retrieved.",
+      "expectedSources": [
+        "src/app",
+        "src/components",
+        "src/features"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-004",
+      "repo": "yuvidew/roomify.ai",
+      "category": "ai",
+      "question": "What AI features does the app appear to use?",
+      "expectedJudgeCheck": "Must mention model/provider or AI SDK only if evidence exists.",
+      "expectedSources": [
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-005",
+      "repo": "yuvidew/roomify.ai",
+      "category": "config",
+      "question": "Which files reveal the framework and dependencies?",
+      "expectedJudgeCheck": "Must cite package.json and config files if available.",
+      "expectedSources": [
+        "package.json",
+        "next.config.ts",
+        "next.config.js"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "ROOM-006",
+      "repo": "yuvidew/roomify.ai",
+      "category": "routing",
+      "question": "How does routing work?",
+      "expectedJudgeCheck": "Must mention Next.js App Router only if app directory evidence is retrieved.",
+      "expectedSources": [
+        "src/app"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-007",
+      "repo": "yuvidew/roomify.ai",
+      "category": "citation",
+      "question": "Which files support the architecture answer?",
+      "expectedJudgeCheck": "Must cite actual files, not generic repo summaries.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-008",
+      "repo": "yuvidew/roomify.ai",
+      "category": "risk",
+      "question": "What risks or missing tests are visible?",
+      "expectedJudgeCheck": "Must stay evidence-bound and avoid inventing risks.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "ROOM-009",
+      "repo": "yuvidew/roomify.ai",
+      "category": "negative",
+      "question": "Does the repo show a backend database schema?",
+      "expectedJudgeCheck": "Must answer yes or no based on retrieved files and cite any schema evidence.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ROOM-010",
+      "repo": "yuvidew/roomify.ai",
+      "category": "workflow",
+      "question": "Explain one user workflow through the code.",
+      "expectedJudgeCheck": "Must connect UI entry to API or service code only when those files are visible.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "PIQ-001",
+      "repo": "yuvidew/project-iq",
+      "category": "overview",
+      "question": "What does this project do?",
+      "expectedJudgeCheck": "Must describe the project purpose and stack only with evidence.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "PIQ-002",
+      "repo": "yuvidew/project-iq",
+      "category": "database",
+      "question": "Where is persistence defined?",
+      "expectedJudgeCheck": "Must retrieve Prisma, schema, or db files if they exist.",
+      "expectedSources": [
+        "prisma/schema.prisma",
+        "src/lib/db.ts"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PIQ-003",
+      "repo": "yuvidew/project-iq",
+      "category": "auth",
+      "question": "How is authentication handled?",
+      "expectedJudgeCheck": "Must cite auth files or say not visible.",
+      "expectedSources": [
+        "src/lib/auth.ts",
+        "src/app/api/auth"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PIQ-004",
+      "repo": "yuvidew/project-iq",
+      "category": "ai",
+      "question": "Which AI SDK or provider is used?",
+      "expectedJudgeCheck": "Must cite package/config/source evidence and avoid unsupported provider claims.",
+      "expectedSources": [
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PIQ-005",
+      "repo": "yuvidew/project-iq",
+      "category": "routing",
+      "question": "Which files define the main app shell?",
+      "expectedJudgeCheck": "Must cite layout/page files from the app directory.",
+      "expectedSources": [
+        "src/app/layout.tsx",
+        "src/app/page.tsx"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "PIQ-006",
+      "repo": "yuvidew/project-iq",
+      "category": "architecture",
+      "question": "Explain frontend-to-backend flow.",
+      "expectedJudgeCheck": "Must cite routes, services, and persistence code if visible.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "PIQ-007",
+      "repo": "yuvidew/project-iq",
+      "category": "citation",
+      "question": "Do citations support the answer?",
+      "expectedJudgeCheck": "Judge should fail answers where cited files do not support the main claims.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "PIQ-008",
+      "repo": "yuvidew/project-iq",
+      "category": "negative",
+      "question": "Does it use Convex?",
+      "expectedJudgeCheck": "Must not hallucinate; answer only from package or source evidence.",
+      "expectedSources": [
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PIQ-009",
+      "repo": "yuvidew/project-iq",
+      "category": "risk",
+      "question": "What parts need more test coverage?",
+      "expectedJudgeCheck": "Must tie risk statements to files, absence of tests, or visible modules.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "PIQ-010",
+      "repo": "yuvidew/project-iq",
+      "category": "beginner",
+      "question": "Give a beginner reading order.",
+      "expectedJudgeCheck": "Must cite concrete files and order them logically.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PUB-001",
+      "repo": "public-apis/public-apis",
+      "category": "overview",
+      "question": "What is this repo mainly for?",
+      "expectedJudgeCheck": "Must identify it as a curated list/catalog of free public APIs.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "PUB-002",
+      "repo": "public-apis/public-apis",
+      "category": "structure",
+      "question": "What is the most important file?",
+      "expectedJudgeCheck": "Must identify README or the main list file if retrieved.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "PUB-003",
+      "repo": "public-apis/public-apis",
+      "category": "negative",
+      "question": "Is this a backend API server?",
+      "expectedJudgeCheck": "Must say no or mostly a list/catalog if evidence supports it.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PUB-004",
+      "repo": "public-apis/public-apis",
+      "category": "search",
+      "question": "How would a developer find an API category?",
+      "expectedJudgeCheck": "Must cite list/category structure if retrieved.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "PUB-005",
+      "repo": "public-apis/public-apis",
+      "category": "citation",
+      "question": "Which evidence proves this is a catalog?",
+      "expectedJudgeCheck": "Must cite README/list content, not random source files.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "HELLO-001",
+      "repo": "octocat/Hello-World",
+      "category": "overview",
+      "question": "What does this repo do?",
+      "expectedJudgeCheck": "Must say it is a minimal example repository and avoid over-explaining architecture.",
+      "expectedSources": [
+        "README"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "HELLO-002",
+      "repo": "octocat/Hello-World",
+      "category": "negative",
+      "question": "Does this repo contain an application architecture?",
+      "expectedJudgeCheck": "Must say there is insufficient or minimal code for architecture analysis.",
+      "expectedSources": [],
+      "difficulty": "easy"
+    },
+    {
+      "id": "HELLO-003",
+      "repo": "octocat/Hello-World",
+      "category": "negative",
+      "question": "Which database does this repo use?",
+      "expectedJudgeCheck": "Must say no database evidence is visible.",
+      "expectedSources": [],
+      "difficulty": "easy"
+    },
+    {
+      "id": "HELLO-004",
+      "repo": "octocat/Hello-World",
+      "category": "citation",
+      "question": "What file supports the answer?",
+      "expectedJudgeCheck": "Must cite README or the only available file.",
+      "expectedSources": [
+        "README"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "HELLO-005",
+      "repo": "octocat/Hello-World",
+      "category": "refusal",
+      "question": "Explain its authentication system.",
+      "expectedJudgeCheck": "Must say authentication is not visible or not supported by the minimal repo context.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ZUS-001",
+      "repo": "pmndrs/zustand",
+      "category": "overview",
+      "question": "What is Zustand?",
+      "expectedJudgeCheck": "Must identify Zustand as a React state management library if README/package evidence is retrieved.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "ZUS-002",
+      "repo": "pmndrs/zustand",
+      "category": "usage",
+      "question": "How would a developer use this library?",
+      "expectedJudgeCheck": "Must cite README or examples if retrieved.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ZUS-003",
+      "repo": "pmndrs/zustand",
+      "category": "architecture",
+      "question": "Where is the core library likely implemented?",
+      "expectedJudgeCheck": "Must cite package/src paths if retrieved and qualify uncertainty when context is limited.",
+      "expectedSources": [
+        "src",
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ZUS-004",
+      "repo": "pmndrs/zustand",
+      "category": "tests",
+      "question": "Where are tests or examples?",
+      "expectedJudgeCheck": "Must cite test or example paths if visible.",
+      "expectedSources": [
+        "tests",
+        "examples"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "ZUS-005",
+      "repo": "pmndrs/zustand",
+      "category": "negative",
+      "question": "Does Zustand require Redux?",
+      "expectedJudgeCheck": "Must answer from evidence and avoid guessing if dependency context is missing.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "NEXT-001",
+      "repo": "vercel/next.js",
+      "category": "overview",
+      "question": "What does this repo contain?",
+      "expectedJudgeCheck": "Must identify the Next.js framework repository or monorepo.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "NEXT-002",
+      "repo": "vercel/next.js",
+      "category": "architecture",
+      "question": "What are major areas of the monorepo?",
+      "expectedJudgeCheck": "Must cite packages, apps, docs, examples, or tests if retrieved.",
+      "expectedSources": [
+        "packages",
+        "test",
+        "examples",
+        "docs"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "id": "NEXT-003",
+      "repo": "vercel/next.js",
+      "category": "build",
+      "question": "Where would build or compiler code likely live?",
+      "expectedJudgeCheck": "Must cite relevant package paths only if retrieved.",
+      "expectedSources": [
+        "packages"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "id": "NEXT-004",
+      "repo": "vercel/next.js",
+      "category": "tests",
+      "question": "How is testing represented?",
+      "expectedJudgeCheck": "Must cite test or benchmark paths if visible.",
+      "expectedSources": [
+        "test",
+        "benchmarks"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "NEXT-005",
+      "repo": "vercel/next.js",
+      "category": "negative",
+      "question": "Can the sampled context fully explain all Next.js internals?",
+      "expectedJudgeCheck": "Must say no when source coverage is limited and avoid overstating completeness.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "SHAD-001",
+      "repo": "shadcn-ui/ui",
+      "category": "overview",
+      "question": "What does this repository provide?",
+      "expectedJudgeCheck": "Must identify UI components, registry, or code distribution platform if evidence supports it.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "SHAD-002",
+      "repo": "shadcn-ui/ui",
+      "category": "structure",
+      "question": "Where are components or registry files?",
+      "expectedJudgeCheck": "Must cite actual paths if retrieved.",
+      "expectedSources": [
+        "apps",
+        "packages",
+        "registry"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "SHAD-003",
+      "repo": "shadcn-ui/ui",
+      "category": "usage",
+      "question": "How does a developer use this project?",
+      "expectedJudgeCheck": "Must cite docs, README, registry, or CLI evidence if retrieved.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "SHAD-004",
+      "repo": "shadcn-ui/ui",
+      "category": "dependency",
+      "question": "What frontend stack is visible?",
+      "expectedJudgeCheck": "Must cite package or config files and avoid unsupported stack claims.",
+      "expectedSources": [
+        "package.json"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "SHAD-005",
+      "repo": "shadcn-ui/ui",
+      "category": "negative",
+      "question": "Is it a SaaS backend app?",
+      "expectedJudgeCheck": "Must avoid unsupported backend claims and answer based on retrieved context.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "GEM-001",
+      "repo": "google-gemini/gemini-cli",
+      "category": "overview",
+      "question": "What does this repo do?",
+      "expectedJudgeCheck": "Must identify it as a Gemini CLI or terminal AI agent if supported.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "GEM-002",
+      "repo": "google-gemini/gemini-cli",
+      "category": "architecture",
+      "question": "What are the main CLI layers?",
+      "expectedJudgeCheck": "Must cite CLI/core/package paths if retrieved.",
+      "expectedSources": [
+        "packages",
+        "src"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "id": "GEM-003",
+      "repo": "google-gemini/gemini-cli",
+      "category": "config",
+      "question": "Where are package and dependency signals?",
+      "expectedJudgeCheck": "Must cite package files.",
+      "expectedSources": [
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "GEM-004",
+      "repo": "google-gemini/gemini-cli",
+      "category": "workflow",
+      "question": "Trace a user command through the code.",
+      "expectedJudgeCheck": "Must cite entrypoint and command files only if visible; otherwise qualify limitations.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "GEM-005",
+      "repo": "google-gemini/gemini-cli",
+      "category": "negative",
+      "question": "Does the context prove billing integration exists?",
+      "expectedJudgeCheck": "Must say no unless billing evidence is retrieved.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CAL-001",
+      "repo": "calcom/cal.diy",
+      "category": "overview",
+      "question": "What is this project?",
+      "expectedJudgeCheck": "Must identify scheduling infrastructure or scheduling app when evidence supports it.",
+      "expectedSources": [
+        "README.md",
+        "package.json"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "id": "CAL-002",
+      "repo": "calcom/cal.diy",
+      "category": "architecture",
+      "question": "What are the likely app layers?",
+      "expectedJudgeCheck": "Must cite monorepo, app, package, API, or database evidence if retrieved.",
+      "expectedSources": [
+        "apps",
+        "packages",
+        "prisma"
+      ],
+      "difficulty": "hard"
+    },
+    {
+      "id": "CAL-003",
+      "repo": "calcom/cal.diy",
+      "category": "database",
+      "question": "Is persistence visible?",
+      "expectedJudgeCheck": "Must cite schema or db files if retrieved, otherwise state insufficient context.",
+      "expectedSources": [
+        "prisma",
+        "schema.prisma"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CAL-004",
+      "repo": "calcom/cal.diy",
+      "category": "auth",
+      "question": "Is authentication visible?",
+      "expectedJudgeCheck": "Must cite auth files if retrieved, otherwise state insufficient context.",
+      "expectedSources": [
+        "auth",
+        "middleware"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CAL-005",
+      "repo": "calcom/cal.diy",
+      "category": "negative",
+      "question": "Can the sampled context prove all scheduling rules?",
+      "expectedJudgeCheck": "Must say no if source coverage is limited and avoid overstating.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CROSS-001",
+      "repo": "mixed repos",
+      "category": "retrieval",
+      "question": "Ask about database schema in a repo with no database files.",
+      "expectedJudgeCheck": "Retrieval should not force unrelated schema files; answer should say schema evidence is missing.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    },
+    {
+      "id": "CROSS-002",
+      "repo": "mixed repos",
+      "category": "hallucination",
+      "question": "Ask for a file path that does not exist.",
+      "expectedJudgeCheck": "Answer should say the path was not found or is not visible in saved context.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CROSS-003",
+      "repo": "mixed repos",
+      "category": "citation",
+      "question": "Ask a question where README is enough.",
+      "expectedJudgeCheck": "Citations should include README or equivalent docs, not random unrelated source.",
+      "expectedSources": [
+        "README.md"
+      ],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CROSS-004",
+      "repo": "mixed repos",
+      "category": "freshness",
+      "question": "Ask whether current GitHub main is newer than the saved analysis.",
+      "expectedJudgeCheck": "Must use freshness metadata or say a freshness check is required.",
+      "expectedSources": [],
+      "difficulty": "medium"
+    },
+    {
+      "id": "CROSS-005",
+      "repo": "mixed repos",
+      "category": "fallback",
+      "question": "Run with embeddings disabled and compare answer quality.",
+      "expectedJudgeCheck": "Judge should record keyword fallback retrieval separately from vector retrieval.",
+      "expectedSources": [],
+      "difficulty": "hard"
+    }
+  ]
+}
