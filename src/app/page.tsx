@@ -1,6 +1,7 @@
 import { HomeView } from "@/features/home/_components/home-view";
 import { requireAuth } from "@/lib/auth-utils";
 
+// Home page 
 const Home = async () => {
   await requireAuth();
   return <HomeView />;
